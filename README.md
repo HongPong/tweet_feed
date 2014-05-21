@@ -1,23 +1,20 @@
-tweet_feed
+Tweet Feed
 ==========
 
-A module to integrate Twitter feeds using Views. Works with Twitter API v1.1 - all you need are the access tokens from a created application. You can specify the search and, using views, limit tweets displayed to their owner by ID. 
+A module to integrate Twitter feeds using Views. Works with Twitter API v1.1 - all you need are the access tokens from a created application. You can specify to pull tweets by timeline or search. These are then presented using Views (sample view template provided) where you can display imported information and filter by criteria. A new feature is a contextual filter which can be added to filter tweets by hashtag.
 
 This module also creates linked URLs from URLs, Hash Tags and Usernames inside the feed itself.
 
-Requires:<br />
-<b>Oauth (Oauth Common)</b><br />
-<b>Views</b>
+Requires:
+Oauth (Oauth Common)
+Views
 
-This module exists thanks to the generous support of <a href="http://highwire.org">HighWire Press</a> and <a href="http://stanford.edu">Stanford University</a>
+This module exists thanks to the generous support of HighWire Press and Stanford University.
 
-Working on a documentation page. Until then here is a brief tutorial on how to set up the module. 
+Contextual views inspiration and refinement compliments of Ashley Hall in conjunction with the development of the Symposiac conference platform, supported by the Institute for the Arts and Humanities and UNC.
 
 You will need to provide an API Key, API Secret Key, Access Token and Access Token Secret that you get from your API on Twitter. Once those have been provided you will also want to enter a term by which to search twitter. This should contain the criteria by which you wish to extract data from Twitter.
 
 Once this data is saved, run the cron. It will pull in tweets if everything is configured correctly with your tokens. Note that the API only returns tweets within the last 30 days.
 
 From there you will need to use the view (a sample of which is included with the module). Look for the Tweet Feed disabled view, make a clone of it and configure what you need from it.
-
-I plan some more robust documentation with a screen cast. Look for that by April 1, 2014.
-
