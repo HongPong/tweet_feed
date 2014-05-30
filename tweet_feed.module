@@ -217,7 +217,7 @@ function tweet_feed_cron() {
 function tweet_feed_get_hashtags($hashtag_entities) {
   $hashtags = array();
   foreach($hashtag_entities as $entity) {
-    $hashtags[] = $entity->text;
+    $hashtags[] = ' ' . $entity->text . ' ';
   }
   return join(',', $hashtags);
 }
