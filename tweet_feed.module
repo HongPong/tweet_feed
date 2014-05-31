@@ -8,7 +8,7 @@ function tweet_feed_menu() {
   $items['admin/config/services/tweet_feed'] = array(
     'title' => 'Tweet Feed',
     'description' => 'The settings for the Tweet Feed module',
-    'page callback' => 'tweet_feed_cron',
+    'page callback' => 'drupal_get_form',
     'page arguments' => array('tweet_feed_settings_form'),
     'access callback' => 'user_access',
     'access arguments' => array('administer tweet feed settings'),
@@ -150,18 +150,19 @@ function tweet_feed_cron() {
 
   db_query('TRUNCATE TABLE {tweet_feed}');
 
-  /* Build TwitterOAuth object with client credentials. */
+  // Build TwitterOAuth object with client credentials 
   $con = new TwitterOAuth($tweet_feed_consumer_key, $tweet_feed_consumer_secret, $tweet_feed_oauth_token, $tweet_feed_oauth_token_secret);
 
-  $number_to_get = 150; //variable_get('tweet_feed_pull_count',100);
+  // get the number of tweets to pull from our list 
+  $number_to_get = variable_get('tweet_feed_pull_count',100);
 
   $current_count = 0;
   $tweets = array();
   $params = (variable_get('tweet_feed_query_type','search') == 'timeline') ?
-    array('user_id' => variable_get('tweet_feed_user_id',NULL),'count' => 75) :
-    array('q' => variable_get('tweet_feed_search_query',NULL),'count' => 75);
+    array('user_id' => variable_get('tweet_feed_user_id',NULL),'count' => 100) :
+    array('q' => variable_get('tweet_feed_search_query',NULL),'count' => 100);
         
-  while(count($tweets) < $number_to_get) {
+  while(count($tweets) <= $number_to_get) {
     if (!empty($tdata->search_metadata->next_results)) {
       $next = substr($tdata->search_metadata->next_results,1);
       $parts = explode('&', $next);
@@ -190,12 +191,16 @@ function tweet_feed_cron() {
     }
 
     $data = tweet_feed_process_tweets($tdata);
-          
+    
+    // If this is FALSE, then we have hit an error and need to stop processing
+    if ($data['tweets'] === FALSE) {
+      break;
+    }
+    
+    // merge the total tweets so we know how many we have
     $tweets = array_merge($data['tweets'],$tweets);
     $lowest_id = $data['lowest_id'];
-    print count($tweets)."<br />";  
   }
-  die('here');
 }
 
 
@@ -204,13 +209,17 @@ function tweet_feed_process_tweets($tdata) {
     if (!empty($tdata->errors)) {
       foreach($tdata->errors as $error) {
         drupal_set_message(t('Tweet Feed Fail: ') . $error->message . ': ' . $error->code,  'error');
-        die('stop');
+        return array('data' => FALSE, 'lowest_id' => -1);
       }
     }
     else {
       $tweets = array();
       if (variable_get('tweet_feed_query_type','search') == 'timeline') {
         foreach($tdata as $tweet) {
+          // find out if we already have this tweet, if we do, add it to the update pk
+          $count = db_query("SELECT COUNT(*) FROM {tweet_feed} WHERE tweet_id = :tweet_id", array(':tweet_id' => $tweet->id))->fetchField();
+          $pk = ($count > 0) ? array('tweet_id') : array();
+          
           $creation_timestamp = strtotime($tweet->created_at);
           $tweet_html = tweet_feed_format_output($tweet->text);
           $hashtags = tweet_feed_get_hashtags($tweet->entities->hashtags);
@@ -221,14 +230,19 @@ function tweet_feed_process_tweets($tdata) {
             'profile_image_url' => $tweet->user->profile_image_url,
             'screen_name' => $tweet->user->screen_name,
             'hashtags' => $hashtags,
+            'tweet_id' => $tweet->id,
           );
           $tweets[] = $data;
-          drupal_write_record('tweet_feed', $data);
+          drupal_write_record('tweet_feed', $data, $pk);
         }
       }
       else {
         $lowest_id = 0;
         foreach($tdata->statuses as $key=>$tweet) {
+          // find out if we already have this tweet, if we do, add it to the update pk
+          $count = db_query("SELECT COUNT(*) FROM {tweet_feed} WHERE tweet_id = :tweet_id", array(':tweet_id' => $tweet->id))->fetchField();
+          $pk = ($count > 0) ? array('tweet_id') : array();
+
           $creation_timestamp = strtotime($tweet->created_at);
           $lowest_id = ($key == 0) ? $tweet->id : $lowest_id;
           $lowest_id = ($tweet->id < $lowest_id) ? $tweet->id : $lowest_id;
@@ -242,9 +256,10 @@ function tweet_feed_process_tweets($tdata) {
             'profile_image_url' => $tweet->user->profile_image_url,
             'screen_name' => $tweet->user->screen_name,
             'hashtags' => $hashtags,
+            'tweet_id' => $tweet->id,
           );
           $tweets[] = $data;
-          drupal_write_record('tweet_feed', $data);
+          drupal_write_record('tweet_feed', $data, $pk);
         }
       }
     }
