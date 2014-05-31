@@ -148,7 +148,7 @@ function tweet_feed_cron() {
   /* load in our oauth class */
   module_load_include('inc','tweet_feed','inc/twitter-oauth');
 
-  db_query('TRUNCATE TABLE {tweet_feed}');
+  //db_query('TRUNCATE TABLE {tweet_feed}');
 
   // Build TwitterOAuth object with client credentials 
   $con = new TwitterOAuth($tweet_feed_consumer_key, $tweet_feed_consumer_secret, $tweet_feed_oauth_token, $tweet_feed_oauth_token_secret);
