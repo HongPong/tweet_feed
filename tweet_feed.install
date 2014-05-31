@@ -8,7 +8,7 @@ function tweet_feed_schema() {
     'description' => 'A cache for twitter feeds.',
     'fields' => array(
       'tweet_id' => array(
-        'description' => 'A comma separated list of hashtags without the hash.',
+        'description' => 'The twitter tweet id for this tweet.',
         'type' => 'int',
         'size' => 'big',
         'not null' => FALSE),

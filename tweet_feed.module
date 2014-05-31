@@ -140,6 +140,12 @@ function tweet_feed_settings_form($form,&$form_state) {
     '#default_value' => variable_get('tweet_feed_new_window', 0),
   );
 
+  $form['tweet_feed_query_settings']['tweet_feed_truncate'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Truncate Tweets Table on Every Import'),
+    '#default_value' => variable_get('tweet_feed_truncate', 0),
+  );
+
   return system_settings_form($form);
 }
 
@@ -153,16 +159,20 @@ function tweet_feed_cron() {
   $tweet_feed_oauth_token = variable_get('tweet_feed_oauth_token', NULL);
   $tweet_feed_oauth_token_secret = variable_get('tweet_feed_oauth_token_secret', NULL);
   
-  /* check to see if our api tokens are set up, if not then skip cron */
+  // check to see if our api tokens are set up, if not then skip cron
   if (empty($tweet_feed_consumer_key) || empty($tweet_feed_consumer_secret) || empty($tweet_feed_oauth_token) || empty($tweet_feed_oauth_token_secret)) { 
     return FALSE;
   }
 
-  /* load in our oauth class */
+  // Load in our twitter oauth class
   module_load_include('inc', 'tweet_feed', 'inc/twitter-oauth');
 
-  //db_query('TRUNCATE TABLE {tweet_feed}');
-
+  // If we have selected to truncate our tweet table, then do so here 
+  $truncate = variable_get('tweet_feed_truncate', 0);
+  if ($truncate == 1) {
+    db_query('TRUNCATE TABLE {tweet_feed}');
+  }
+  
   // Build TwitterOAuth object with client credentials 
   $con = new TwitterOAuth($tweet_feed_consumer_key, $tweet_feed_consumer_secret, $tweet_feed_oauth_token, $tweet_feed_oauth_token_secret);
 
@@ -203,7 +213,7 @@ function tweet_feed_cron() {
       );    
     }
 
-    $data = tweet_feed_process_tweets($tdata);
+    $data = tweet_feed_process_tweets($tdata->statuses);
     
     // If this is FALSE, then we have hit an error and need to stop processing
     if ($data['tweets'] === FALSE) {
@@ -216,7 +226,9 @@ function tweet_feed_cron() {
   }
 }
 
-
+/**
+ * process tweet data from what we have retrieved from the Twitter API 
+ */
 function tweet_feed_process_tweets($tdata) {
   if (!empty($tdata)) {  
     if (!empty($tdata->errors)) {
@@ -227,12 +239,16 @@ function tweet_feed_process_tweets($tdata) {
     }
     else {
       $tweets = array();
-      foreach($tdata as $tweet) {
+      foreach($tdata as $key => $tweet) {
         // find out if we already have this tweet, if we do, add it to the update pk
         $count = db_query("SELECT COUNT(*) FROM {tweet_feed} WHERE tweet_id = :tweet_id", array(':tweet_id' => $tweet->id))->fetchField();
         $pk = ($count > 0) ? array('tweet_id') : array();
         
         $creation_timestamp = strtotime($tweet->created_at);
+        
+        $lowest_id = ($key == 0) ? $tweet->id : $lowest_id;
+        $lowest_id = ($tweet->id < $lowest_id) ? $tweet->id : $lowest_id;
+        
         $tweet_html = tweet_feed_format_output($tweet->text);
         $hashtags = tweet_feed_get_hashtags($tweet->entities->hashtags);
         $data = array(
@@ -252,6 +268,10 @@ function tweet_feed_process_tweets($tdata) {
   return array('tweets' => $tweets, 'lowest_id' => $lowest_id);
 }
 
+/**
+ * get the hashtags for our hasgtag field. surround by spaces for the purposes of
+ * exact matching in our view options
+ */
 function tweet_feed_get_hashtags($hashtag_entities) {
   $hashtags = array();
   foreach($hashtag_entities as $entity) {
