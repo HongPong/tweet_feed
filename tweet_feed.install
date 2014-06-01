@@ -109,7 +109,7 @@ function tweet_feed_update_7108() {
 }
 
 /**
- * Add a field to hold our tweet id's
+ * Add a field to hold our tweet id's and remove the meaningless tid.
  */
 function tweet_feed_update_7109() {
   $schema = tweet_feed_schema();
