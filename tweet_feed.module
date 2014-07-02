@@ -233,7 +233,7 @@ function tweet_feed_process_tweets($tdata) {
     if (!empty($tdata->errors)) {
       foreach($tdata->errors as $error) {
         drupal_set_message(t('Tweet Feed Fail: ') . $error->message . ': ' . $error->code,  'error');
-        return array('data' => FALSE, 'lowest_id' => -1);
+        return array('tweets' => FALSE, 'lowest_id' => -1);
       }
     }
     else {
