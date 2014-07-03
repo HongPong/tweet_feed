@@ -264,6 +264,9 @@ function tweet_feed_process_tweets($tdata) {
       }
     }
   }
+  else {
+    return array('tweets' => FALSE, 'lowest_id' => -1);
+  }
   return array('tweets' => $tweets, 'lowest_id' => $lowest_id);
 }
 
