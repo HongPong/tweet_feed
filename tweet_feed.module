@@ -229,6 +229,7 @@ function tweet_feed_cron() {
  * process tweet data from what we have retrieved from the Twitter API 
  */
 function tweet_feed_process_tweets($tdata) {
+  $tweets = array();
   if (!empty($tdata)) {  
     if (!empty($tdata->errors)) {
       foreach($tdata->errors as $error) {
@@ -237,7 +238,6 @@ function tweet_feed_process_tweets($tdata) {
       }
     }
     else {
-      $tweets = array();
       foreach($tdata as $key => $tweet) {
         // find out if we already have this tweet, if we do, add it to the update pk
         $count = db_query("SELECT COUNT(*) FROM {tweet_feed} WHERE tweet_id = :tweet_id", array(':tweet_id' => $tweet->id))->fetchField();
