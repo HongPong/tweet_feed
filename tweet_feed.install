@@ -53,14 +53,14 @@ function tweet_feed_schema() {
  * Implements hook_install()
  */
 function tweet_feed_install() {
-  drupal_install_schema('tweet_feed'),
-);
+  drupal_install_schema('tweet_feed');
+}
 
 /**
  * implementation of hook_uninstall()
  */
 function tweet_feed_uninstall() {
-  drupal_uninstall_schema('tweet_feed'),
+  drupal_uninstall_schema('tweet_feed');
   variable_del('tweet_feed_consumer_key');
   variable_del('tweet_feed_consumer_key');
   variable_del('tweet_feed_consumer_secret');

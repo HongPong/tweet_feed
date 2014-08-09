@@ -5,7 +5,7 @@
  */
 function tweet_feed_menu() {
   $items = array();
-  $items['admin/config/services/tweet_feed'] = array(
+  $items['admin/settings/tweet_feed'] = array(
     'title' => 'Tweet Feed',
     'description' => 'The settings for the Tweet Feed module',
     'page callback' => 'drupal_get_form',
@@ -28,24 +28,21 @@ function tweet_feed_perm() {
  * tweet_feed_settings_form($form,&$form_state)
  * our settings for for oauth tokens and search queries
  */
-function tweet_feed_settings_form($form,&$form_state) {
-  $form = array();
-
-  $form_state['redirect'] = 'admin/configure/tweet_feed';
-  
+function tweet_feed_settings_form(&$form_state) {
+  $form = array();  
   $form['tweet_feed_api_keys'] = array(
     '#type' => 'fieldset',
     '#title' => t('Twitter API Tokens'),
     '#collapsible' => TRUE,
     '#collapsed' => FALSE,
-    '#weight' => 1,
+    '#weight' => -10,
   );
   $form['tweet_feed_query_settings'] = array(
     '#type' => 'fieldset',
     '#title' => t('Twitter Query Settings'),
     '#collapsible' => TRUE,
     '#collapsed' => FALSE,
-    '#weight' => 2,
+    '#weight' => -9,
   );
   $form['tweet_feed_api_keys']['tweet_feed_consumer_key'] = array(
     '#type' => 'textfield',
@@ -90,11 +87,6 @@ function tweet_feed_settings_form($form,&$form_state) {
     '#title' => t('Twitter Search Query'),
     '#max_length' => 255,
     '#default_value' => variable_get('tweet_feed_search_query', NULL),
-    '#states' => array(
-      'invisible' => array(
-        ':input[name="tweet_feed_query_type"]' => array('value' => 'timeline'),
-      ),
-    ),
   );
   $form['tweet_feed_query_settings']['tweet_feed_user_id'] = array(
     '#type' => 'textfield',
@@ -102,11 +94,6 @@ function tweet_feed_settings_form($form,&$form_state) {
     '#description' => t('You can get this by going to mytwitterid.com'),
     '#max_length' => 255,
     '#default_value' => variable_get('tweet_feed_user_id', NULL),
-    '#states' => array(
-      'invisible' => array(
-        ':input[name="tweet_feed_query_type"]' => array('value' => 'search'),
-      ),
-    ),
   );
   $form['tweet_feed_query_settings']['tweet_feed_pull_count'] = array(
     '#type' => 'select',
@@ -237,7 +224,8 @@ function tweet_feed_process_tweets($tdata) {
     else {
       foreach($tdata as $key => $tweet) {
         // find out if we already have this tweet, if we do, add it to the update pk
-        $count = db_query("SELECT COUNT(*) FROM {tweet_feed} WHERE tweet_id = :tweet_id", array(':tweet_id' => $tweet->id))->fetchField();
+        $count = db_result(db_query("SELECT COUNT(*) FROM {tweet_feed} 
+                                     WHERE tweet_id = %s", $tweet->id));
         $pk = ($count > 0) ? array('tweet_id') : array();
         
         $creation_timestamp = strtotime($tweet->created_at);
@@ -302,8 +290,8 @@ function tweet_feed_format_output($tweet) {
 /**
  * implementation of hook_views_api()
  */
-function tweet_feed_views_api() {
-  return array(
-    'api' => 2
-  );
-}
+//function tweet_feed_views_api() {
+//  return array(
+//    'api' => 2
+//  );
+//}
