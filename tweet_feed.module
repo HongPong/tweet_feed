@@ -193,7 +193,8 @@ function tweet_feed_cron() {
     if (variable_get('tweet_feed_query_type', 'search') == 'timeline') {
       $url = 'https://api.twitter.com/1.1/statuses/user_timeline.json';
       /* get the tweets */
-      $tdata = json_decode(
+      $tdata = new stdClass();
+      $tdata->statuses = json_decode(
         $con->oAuthRequest($url, 'GET', $params)
       );
     }
@@ -202,7 +203,7 @@ function tweet_feed_cron() {
       /* get the tweets */
       $tdata = json_decode(
         $con->oAuthRequest($url, 'GET', $params)
-      );    
+      ); 
     }
 
     $data = tweet_feed_process_tweets($tdata->statuses);
@@ -232,6 +233,7 @@ function tweet_feed_process_tweets($tdata) {
     }
     else {
       foreach($tdata as $key => $tweet) {
+      
         // find out if we already have this tweet, if we do, add it to the update pk
         $count = db_result(db_query("SELECT COUNT(*) FROM {tweet_feed} 
                                      WHERE tweet_id = %s", $tweet->id));
