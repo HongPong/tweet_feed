@@ -20,13 +20,8 @@ function tweet_feed_menu() {
 /**
  * implementation of hook_permission()
  */
-function tweet_feed_permission() {
-  return array(
-    'administer tweet feed settings' => array(
-      'title' => t('Access Tweet Feed Settings'),
-      'description' => t('Allow the changing of OAuth tokens and search queries.'),
-    ),
-  );
+function tweet_feed_perm() {
+  return array('administer tweet feed settings');
 }
 
 /**
@@ -152,6 +147,8 @@ function tweet_feed_settings_form($form,&$form_state) {
  * implementation of hook_cron()
  */
 function tweet_feed_cron() {
+  
+  return FALSE;
   
   $tweet_feed_consumer_key = variable_get('tweet_feed_consumer_key', NULL);
   $tweet_feed_consumer_secret = variable_get('tweet_feed_consumer_secret', NULL);
@@ -307,6 +304,6 @@ function tweet_feed_format_output($tweet) {
  */
 function tweet_feed_views_api() {
   return array(
-    'api' => 3
+    'api' => 2
   );
 }
