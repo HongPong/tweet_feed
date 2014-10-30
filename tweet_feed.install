@@ -138,7 +138,7 @@ function tweet_feed_update_7109() {
     db_add_field('tweet_feed','tweet_id', $schema['tweet_feed']['fields']['tweet_id']);
     
     $result = db_query('SELECT DISTINCT(user_id + created_at) AS unid FROM {tweet_feed}');
-    while ($data = $result->fetchObject) {
+    while ($data = $result->fetchObject()) {
       db_update('tweet_feed')->fields(array('tweet_id' => $id++))
                              ->condition('user_id + created_at', $data->unid, '=')
                              ->execute();
