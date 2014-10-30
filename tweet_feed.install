@@ -134,8 +134,13 @@ function tweet_feed_update_7109() {
     db_drop_field('tweet_feed', 'tid');
   }
   if (!db_field_exists('tweet_feed', 'tweet_id')) {
+    $id = 1;
     db_add_field('tweet_feed','tweet_id', $schema['tweet_feed']['fields']['tweet_id']);
-    db_insert('tweet_feed')->fields(array('tweet_id'))->values(array('9999999999'))->execute();
+    
+    $result = db_query('SELECT DISTINCT(user_id + created_id) AS unid FROM {tweet_feed}');
+    while ($data = $result->fetchObject) {
+      db_query('UPDATE {tweet_feed) SET tweet_id = :tweet_id WHERE (user_id + created_id) = :unid', array(':tweet_id' => $id, ':unid' => $id++));
+    }
     db_add_primary_key('tweet_feed', array('tweet_id'));
   }
 }
