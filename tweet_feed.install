@@ -67,17 +67,17 @@ function tweet_feed_install() {
  * implementation of hook_uninstall()
  */
 function tweet_feed_uninstall() {
-  variable_del('tweet_feed_consumer_key');
-  variable_del('tweet_feed_consumer_key');
-  variable_del('tweet_feed_consumer_secret');
-  variable_del('tweet_feed_oauth_token');
-  variable_del('tweet_feed_oauth_token_secret');
-  variable_del('tweet_feed_query_type');
-  variable_del('tweet_feed_search_query');
-  variable_del('tweet_feed_user_id');
-  variable_del('tweet_feed_pull_count');
-  variable_del('tweet_feed_new_window');
-  variable_del('tweet_feed_truncate');
+  //variable_del('tweet_feed_consumer_key');
+  //variable_del('tweet_feed_consumer_key');
+  //variable_del('tweet_feed_consumer_secret');
+  //variable_del('tweet_feed_oauth_token');
+  //variable_del('tweet_feed_oauth_token_secret');
+  //variable_del('tweet_feed_query_type');
+  //variable_del('tweet_feed_search_query');
+  //variable_del('tweet_feed_user_id');
+  //variable_del('tweet_feed_pull_count');
+  //variable_del('tweet_feed_new_window');
+  //variable_del('tweet_feed_truncate');
 }
 
 /**
@@ -135,7 +135,7 @@ function tweet_feed_update_7109() {
   }
   if (!db_field_exists('tweet_feed', 'tweet_id')) {
     db_add_field('tweet_feed','tweet_id', $schema['tweet_feed']['fields']['tweet_id']);
-    db_insert('tweet_feed')->fields(array('tweet_id' => '9999999999'))->execute();
+    db_insert('tweet_feed')->fields(array('tweet_id'))->values(array('9999999999'))->execute();
     db_add_primary_key('tweet_feed', array('tweet_id'));
   }
 }
