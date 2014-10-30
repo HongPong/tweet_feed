@@ -129,8 +129,7 @@ function tweet_feed_settings_form($form,&$form_state) {
       '900' => '900',
       '1000' => '1000'
     ),
-    '#description' => t('Twitter limits tweet pulling to 1500 every 15 minutes. Keep this in mind when setting the pull count in conjunction with the frequency of 
-     runs.'),
+    '#description' => t('Twitter limits tweet pulling to 1500 every 15 minutes. Keep this in mind when setting the pull count in conjunction with the frequency of cron runs.'),
     '#required' => TRUE,
     '#default_value' => variable_get('tweet_feed_pull_count', 100),
   );
