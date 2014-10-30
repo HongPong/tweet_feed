@@ -139,7 +139,9 @@ function tweet_feed_update_7109() {
     
     $result = db_query('SELECT DISTINCT(user_id + created_at) AS unid FROM {tweet_feed}');
     while ($data = $result->fetchObject) {
-      db_query('UPDATE {tweet_feed} SET tweet_id = :tweet_id WHERE (user_id + created_at) = :unid', array(':tweet_id' => $id, ':unid' => $id++));
+      db_update('tweet_feed')->fields(array('tweet_id' => $id++))
+                             ->condition('user_id + created_at', $data->unid, '=')
+                             ->execute();
     }
     db_add_primary_key('tweet_feed', array('tweet_id'));
   }
