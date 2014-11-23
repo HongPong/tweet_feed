@@ -1,0 +1,46 @@
+<?php
+
+/**
+ * Implements hook_schema()
+ */
+function tweet_feed_schema() {
+  $schema = array();
+  $schema['tweet_feeds'] = array(
+    'fields'=> array(
+      'fid' => array(
+      'type' => 'serial',
+      'unsigned' => TRUE,
+      'not null' => TRUE),
+    'feed_name' => array(
+      'type' => 'varchar',
+      'length' => 128,
+      'not null' => TRUE),
+    'query_type' => array(
+      'type' => 'int',
+      'size' => 'small',
+      'not null' => TRUE),
+    'timeline_twitter_id' => array(
+      'type' => 'varchar',
+      'length' => 64,
+      'not null' => TRUE),
+    'search_twitter_term' => array(
+      'type' => 'varchar',
+      'length' => 64,
+      'not null' => TRUE),
+    'items_to_pull' => array(
+      'type' => 'int',
+      'size' => 'medium',
+      'not null' => TRUE),
+    'truncate' => array(
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => TRUE),
+    'new_window' => array(
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => TRUE),
+    ),
+    'primary key' => array('fid'),
+  );
+  return $schema;
+}

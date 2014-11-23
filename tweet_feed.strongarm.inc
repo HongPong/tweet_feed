@@ -119,6 +119,9 @@ function tweet_feed_strongarm() {
         'title' => array(
           'weight' => '1',
         ),
+        'path' => array(
+          'weight' => '8',
+        ),
       ),
       'display' => array(),
     ),
