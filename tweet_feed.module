@@ -5,3 +5,360 @@
  */
 
 include_once 'tweet_feed.features.inc';
+
+/**
+ * Implements hook_menu
+ */
+function tweet_feed_menu() {
+  $items = array();
+  $items['admin/config/services/tweet_feed'] = array(
+    'title' => t('Tweet Feed'),
+    'description' => t('The settings for the Tweet Feed module'),
+    'page callback' => 'tweet_feed_accounts_table',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer tweet feed settings'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/config/services/tweet_feed/accounts'] = array(
+    'title' => t('Twitter API Accounts'),
+    'description' => t('List of available API accounts used to collect feeds.'),
+    'page callback' => 'tweet_feed_accounts_table',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer tweet feed settings'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  $items['admin/config/services/tweet_feed/accounts/add'] = array(
+    'title' => t('Add Account'),
+    'description' => t('Add a new Twitter API account..'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tweet_feed_account_form'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer tweet feed settings'),
+    'type' => MENU_LOCAL_ACTION,
+  );
+  $items['admin/config/services/tweet_feed/accounts/edit/%tweet_feed_id'] = array(
+    'title' => t('Add Account'),
+    'description' => t('Add a new Twitter API account..'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tweet_feed_account_form', 6),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer tweet feed settings'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/config/services/tweet_feed/accounts/delete/%tweet_feed_id'] = array(
+    'title' => t('Add Account'),
+    'description' => t('Add a new Twitter API account..'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tweet_feed_account_form', 6),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer tweet feed settings'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/config/services/tweet_feed/feeds'] = array(
+    'title' => t('Twitter Feeds'),
+    'description' => t('List of configured feeds to aggregate.'),
+    'page callback' => 'tweet_feed_feeds_table',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer tweet feed settings'),
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/config/services/tweet_feed/feeds/add'] = array(
+    'title' => t('Add Feed'),
+    'description' => t('Add a new feed to the list of aggregated feeds.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tweet_feed_feeds_form'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer tweet feed settings'),
+    'type' => MENU_LOCAL_ACTION,
+  );
+  $items['admin/config/services/tweet_feed/feeds/edit/%tweet_feed_id'] = array(
+    'title' => t('Edit Feed'),
+    'description' => t('Edit one of the listed feeds.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tweet_feed_feeds_form', 6),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer tweet feed settings'),
+    'type' => MENU_LOCAL_ACTION,
+  );
+  $items['admin/config/services/tweet_feed/feeds/delete/%tweet_feed_id'] = array(
+    'title' => t('Delete Feed'),
+    'description' => t('Add a new feed to the list of aggregated feeds.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tweet_feed_feeds_form', 6),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer tweet feed settings'),
+    'type' => MENU_LOCAL_ACTION,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_load
+ */
+function tweet_feed_id_load($value) {
+  return (intval($value)) ? $value : FALSE;
+}
+
+/**
+ * Implements hook_permission
+ */
+function tweet_feed_permission() {
+  return array(
+    'administer tweet feed settings' => array(
+      'title' => t('Access Tweet Feed Settings'),
+      'description' => t('Allow the changing of OAuth tokens and search queries.'),
+    ),
+  );
+}
+
+/**
+ * Accounts Table
+ *
+ * A table to list the Twitter accounts associated with this install that can be used
+ * to bring in feeds to the database.
+ */
+function tweet_feed_accounts_table() {
+  // Set up the right breadcrumbs
+  $breadcrumbs = array();
+  $breadcrumbs[] = l('Home', '<front>');
+  $breadcrumbs[] = l('Administration', 'admin');
+  $breadcrumbs[] = l('Configuration', 'admin/config');
+  $breadcrumbs[] = l('Web Services', 'admin/config/services');
+  $breadcrumbs[] = l('Tweet Feed Accounts', 'admin/config/services/tweet_feed/accounts');
+  drupal_set_breadcrumb($breadcrumbs);
+
+  $rows = array();
+  $header = array(
+    'account_name' => array('data' => t('Account name'), 'style' => 'text-align: center;'),
+    'uses' => array('data' => t('# Uses'), 'style' => 'text-align: center;'),
+    'consumer_key' => array('data' => t('Consumer Key'), 'style' => 'text-align: center;'),
+    'oauth_token' => array('data' => t('Oauth Token'), 'style' => 'text-align: center;'),
+    'edit' => array('data' => t('Edit'), 'style' => 'text-align: center;'),
+    'delete' => array('data' => t('Delete'), 'style' => 'text-align: center;'),
+  );
+  
+  $result = db_query('SELECT * FROM {tweet_accounts} ORDER BY account_name ASC');
+  while ($data = $result->fetchObject()) {
+    // Determine how many queries this feed is responsible for
+    $count = db_query("SELECT COUNT(*) AS number FROM {tweet_feeds} WHERE aid = :aid", array(':aid' => $data->aid))->fetchField();
+    
+    $row = array();
+    $row[] = $data->account_name;
+    $row[] = (array('data' => $count, 'align' => 'center'));
+    $row[] = (array('data' => $data->consumer_key, 'align' => 'center'));
+    $row[] = (array('data' => $data->oauth_token, 'align' => 'center'));
+    $row[] = (array('data' => l(t('Edit'), 'admin/config/services/tweet_feed/accounts/edit/' . $data->aid), 'align' => 'center'));
+    $row[] = (array('data' => l(t('Delete'), 'admin/config/services/tweet_feed/accounts/delete/' . $data->aid), 'align' => 'center'));
+    $rows[] = $row;
+  }
+  
+  if (count($rows) == 0) {
+    $rows = array(
+      array(
+        'data' => array(array('align' => 'center', 'colspan' => 6, 'data' => t('THERE ARE CURRENTLY NO CONFIGURED TWITTER ACCOUNTS.')))
+      ),
+    );
+  }
+  $output = theme('table', array('header'=>$header, 'rows' => $rows));
+  return $output;
+}
+
+/**
+ * Feeds Table
+ *
+ * A table of configured feeds we will pull on each cron run or drush command. Each feed
+ * can be tied to a specific feed account above.
+ */
+function tweet_feed_feeds_table() {
+  // Set up the right breadcrumbs
+  $breadcrumbs = array();
+  $breadcrumbs[] = l('Home', '<front>');
+  $breadcrumbs[] = l('Administration', 'admin');
+  $breadcrumbs[] = l('Configuration', 'admin/config');
+  $breadcrumbs[] = l('Web Services', 'admin/config/services');
+  $breadcrumbs[] = l('Tweet Feed Feeds', 'admin/config/services/tweet_feed/feeds');
+  drupal_set_breadcrumb($breadcrumbs);
+
+  $rows = array();
+  $header = array(
+    'feed_name' => array('data' => t('Feed name'), 'style' => 'text-align: center;'),
+    'feed_type' => array('data' => t('Type'), 'style' => 'text-align: center;'),
+    'feed_criteria' => array('data' => t('Feed Criteria'), 'style' => 'text-align: center;'),
+    'number_per_pull' => array('data' => t('# Per Pull'), 'style' => 'text-align: center;'),
+    'new_window' => array('data' => t('New Window'), 'style' => 'text-align: center;'),
+    'truncate' => array('data' => t('Truncate'), 'style' => 'text-align: center;'),
+    'edit' => array('data' => t('Edit'), 'style' => 'text-align: center;'),
+    'delete' => array('data' => t('Delete'), 'style' => 'text-align: center;'),
+  );
+  
+  $result = db_query('SELECT * FROM {tweet_feeds} ORDER BY feed_name ASC');
+  while ($data = $result->fetchObject()) {
+    $row = array();
+    $row[] = $data->feed_name;
+    $row[] = array('data' => array(array('data' => $query_type, 'align' => 'center')));
+    $row[] = array('data' => array(array('data' => $feed_criteria, 'align' => 'center')));
+    $row[] = array('data' => array(array('data' => $data->items_to_pull, 'align' => 'center')));
+    $row[] = array('data' => array(array('data' => $truncate, 'align' => 'center')));
+    $row[] = array('data' => array(array('data' => $new_window, 'align' => 'center')));
+    $row[] = array('data' => array(array('data' => l(t('Edit'), 'admin/config/services/tweet_feed/feeds/edit/' . $data->fid), 'align' => 'center')));
+    $row[] = array('data' => array(array('data' => l(t('Delete'), 'admin/config/services/tweet_feed/feeds/delete/' . $data->fid), 'align' => 'center')));
+    $rows[] = $row;
+  }
+  
+  if (count($rows) == 0) {
+    $rows = array(
+      array(
+        'data' => array(array('align' => 'center', 'colspan' => 8, 'data' => t('THERE ARE CURRENTLY NO CONFIGURED TWITTER FEEDS.')))
+      ),
+    );
+  }
+  $output = theme('table', array('header'=>$header, 'rows' => $rows));
+  return $output;
+}
+
+
+/**
+ * Settings form 
+ * our settings for for oauth tokens and search queries
+ */
+function tweet_feed_account_form($form, &$form_state, $aid = 0) {
+  // Set up the right breadcrumbs
+  $breadcrumbs = array();
+  $breadcrumbs[] = l('Home', '<front>');
+  $breadcrumbs[] = l('Administration', 'admin');
+  $breadcrumbs[] = l('Configuration', 'admin/config');
+  $breadcrumbs[] = l('Web Services', 'admin/config/services');
+  $breadcrumbs[] = l('Tweet Feed Accounts', 'admin/config/services/tweet_feed/accounts');
+  $breadcrumbs[] = l('Tweet Feed Account Form', substr(request_uri(),1));
+  drupal_set_breadcrumb($breadcrumbs);
+
+  // If we are being passed an aid, then we are updating the form and need to repopulate
+  // the values and tell the processor that we are updating and not creating new.
+  if (!empty($aid)) {
+    $result = db_query('SELECT * FROM {tweet_accounts}{
+                        WHERE aid=:aid', array(':aid' => $aid))->fetchObject();
+    $account_name = $result->account_name;
+    $consumer_key = $result->consumer_key;
+    $consumer_secret = $result->consumer_secret;
+    $oauth_token = $result->oauth_token;
+    $oauth_token_secret = $result->oauth_token_secret;
+  }
+  else {
+    // Otherwise just initialize the form so we do not have a swath of errors 
+    $aid = $account_name = $consumer_key = $consumer_secret = NULL;
+    $oauth_token = $oauth_token_secret = NULL;
+  }
+  
+  // Set up our settings form for this particular account (new or update)
+  if (!empty($aid)) {
+    $form['aid'] = array(
+      '#type' => 'hidden',
+      '#value' => $aid,
+    );
+  }
+  $form['tweet_feed_account'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Tweet Feed Account Information Form'),
+    '#description' => t('Provide information about the Twitter account you wish to add. These can be used to get the feeds for any of our configurable options.'),
+  );
+  $form['tweet_feed_account']['account_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Account Name'),
+    '#max_length' => 128,
+    '#required' => TRUE,
+    '#default_value' => $account_name,
+  );
+  $form['tweet_feed_account']['consumer_key'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Consumer Key'),
+    '#max_length' => 255,
+    '#required' => TRUE,
+    '#default_value' => $consumer_key,
+  );
+  $form['tweet_feed_account']['consumer_secret'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Consumer Secret'),
+    '#max_length' => 255,
+    '#required' => TRUE,
+    '#default_value' => $consumer_secret,
+  );
+  $form['tweet_feed_account']['oauth_token'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Oauth Token'),
+    '#max_length' => 255,
+    '#required' => TRUE,
+    '#default_value' => $oauth_token,
+  );
+  $form['tweet_feed_account']['oauth_token_secret'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Oauth Token Secret'),
+    '#max_length' => 255,
+    '#required' => TRUE,
+    '#default_value' => $oauth_token_secret,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save Form'),
+  );
+  return $form;
+}
+
+/**
+ * Submit handler for accounts form
+ *
+ * Take the account information and either save it to a new record or update
+ * an existing one
+ */
+function tweet_feed_account_form_submit($form, &$form_state) {
+  // Get a shortcut for our $form_state['values'] array
+  $values = $form_state['values'];
+  
+  // Define our array of data provided by the form
+  $data = array(
+    'account_name' => $values['account_name'],
+    'consumer_key' => $values['consumer_key'],
+    'consumer_secret' => $values['consumer_secret'],
+    'oauth_token' => $values['oauth_token'],
+    'oauth_token_secret' => $values['oauth_token_secret'],
+  );
+  
+  // If aid is empty then we're creating a new record. Otherwise we are updating an
+  // existing one and need to call the proper drupal_write_record function accordingly.
+  if (!empty($values['aid'])) {
+    $data['aid'] = $values['aid'];
+    $status = drupal_write_record('tweet_accounts', $data, array('aid'));
+  } 
+  else {
+    $status = drupal_write_record('tweet_accounts', $data); 
+  }
+  
+  // Go back to the list of accounts when we are done.
+  $form_state['redirect'] = 'admin/config/services/tweet_feed/accounts';
+  
+  // Set the status message based on the result we get from writing our record.
+  switch ($status) {
+    case SAVED_NEW:
+      drupal_set_message('New Twitter account has been successfully added.', 'status');
+      break;
+    case SAVED_UPDATED:
+      drupal_set_message('Twitter account has been successfully updated.', 'status');
+      break;
+    case FALSE:
+    default:
+      drupal_set_message('The Twitter details provided could not be properly saved to the database.', 'error');
+      break;
+  }
+}
+
+function tweet_feed_feeds_form($form, &$form_state) {
+  $breadcrumbs = array();
+  $breadcrumbs[] = l('Home', '<front>');
+  $breadcrumbs[] = l('Administration', 'admin');
+  $breadcrumbs[] = l('Configuration', 'admin/config');
+  $breadcrumbs[] = l('Web Services', 'admin/config/services');
+  $breadcrumbs[] = l('Tweet Feed Feeds', 'admin/config/services/tweet_feed/feeds');
+  $breadcrumbs[] = l('Tweet Feed Feeds Form', substr(request_uri(),1));
+  drupal_set_breadcrumb($breadcrumbs);
+
+  return $form;
+}
