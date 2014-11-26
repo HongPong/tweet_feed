@@ -6,6 +6,10 @@
 
 include_once 'tweet_feed.features.inc';
 
+define('QUERY_SEARCH', 1);
+define('QUERY_TIMELINE', 2);
+define('QUERY_LIST', 3);
+
 /**
  * Implements hook_menu
  */
@@ -193,15 +197,34 @@ function tweet_feed_feeds_table() {
   
   $result = db_query('SELECT * FROM {tweet_feeds} ORDER BY feed_name ASC');
   while ($data = $result->fetchObject()) {
+  
+    switch ($data->query_type) {
+      case QUERY_SEARCH:
+        $query_type = 'Timeline Search';
+        $feed_criteria = $data->search_term;
+        break;
+      case QUERY_TIMELINE:
+        $query_type = 'User Timeline';
+        $feed_criteria = $data->timeline_id;
+        break;
+      case QUERY_LIST:
+        $query_type = 'User List';
+        $feed_criteria = $data->list_name;
+        break;
+      default:
+        $query_type = t('Unknown');
+        $feed_criteria = t('Unknown');
+    }
+  
     $row = array();
     $row[] = $data->feed_name;
-    $row[] = array('data' => array(array('data' => $query_type, 'align' => 'center')));
-    $row[] = array('data' => array(array('data' => $feed_criteria, 'align' => 'center')));
-    $row[] = array('data' => array(array('data' => $data->items_to_pull, 'align' => 'center')));
-    $row[] = array('data' => array(array('data' => $truncate, 'align' => 'center')));
-    $row[] = array('data' => array(array('data' => $new_window, 'align' => 'center')));
-    $row[] = array('data' => array(array('data' => l(t('Edit'), 'admin/config/services/tweet_feed/feeds/edit/' . $data->fid), 'align' => 'center')));
-    $row[] = array('data' => array(array('data' => l(t('Delete'), 'admin/config/services/tweet_feed/feeds/delete/' . $data->fid), 'align' => 'center')));
+    $row[] = (array('data' => $query_type, 'align' => 'center'));
+    $row[] = (array('data' => $feed_criteria, 'align' => 'center'));
+    $row[] = (array('data' => $data->pull_count, 'align' => 'center'));
+    $row[] = (array('data' => $data->clear_prior, 'align' => 'center'));
+    $row[] = (array('data' => $data->new_window, 'align' => 'center'));
+    $row[] = (array('data' => l(t('Edit'), 'admin/config/services/tweet_feed/feeds/edit/' . $data->fid), 'align' => 'center'));
+    $row[] = (array('data' => l(t('Delete'), 'admin/config/services/tweet_feed/feeds/delete/' . $data->fid), 'align' => 'center'));
     $rows[] = $row;
   }
   
@@ -235,7 +258,7 @@ function tweet_feed_account_form($form, &$form_state, $aid = 0) {
   // If we are being passed an aid, then we are updating the form and need to repopulate
   // the values and tell the processor that we are updating and not creating new.
   if (!empty($aid)) {
-    $result = db_query('SELECT * FROM {tweet_accounts}{
+    $result = db_query('SELECT * FROM {tweet_accounts}
                         WHERE aid=:aid', array(':aid' => $aid))->fetchObject();
     $account_name = $result->account_name;
     $consumer_key = $result->consumer_key;
@@ -350,7 +373,7 @@ function tweet_feed_account_form_submit($form, &$form_state) {
   }
 }
 
-function tweet_feed_feeds_form($form, &$form_state) {
+function tweet_feed_feeds_form($form, &$form_state, $fid = 0) {
   $breadcrumbs = array();
   $breadcrumbs[] = l('Home', '<front>');
   $breadcrumbs[] = l('Administration', 'admin');
@@ -360,5 +383,195 @@ function tweet_feed_feeds_form($form, &$form_state) {
   $breadcrumbs[] = l('Tweet Feed Feeds Form', substr(request_uri(),1));
   drupal_set_breadcrumb($breadcrumbs);
 
+  // If we are being passed an aid, then we are updating the form and need to repopulate
+  // the values and tell the processor that we are updating and not creating new.
+  if (!empty($fid)) {
+    $result = db_query('SELECT * FROM {tweet_feeds}
+                        WHERE fid=:fid', array(':fid' => $fid))->fetchObject();
+    $fid = $result->fid;
+    $aid = $result->aid;
+    $feed_name = $result->feed_name;
+    $query_type = $result->query_type;
+    $timeline_id = $result->timeline_id;
+    $search_term = $result->search_term;
+    $list_name = $result->list_name;
+    $pull_count = $result->pull_count;
+    $clear_prior = $result->clear_prior;
+    $new_window = $result->new_window;
+  }
+  else {
+    // Otherwise just initialize the form so we do not have a swath of errors 
+    $fid = $aid = $query_type = $search_term = $list_name = $feed_name = NULL;
+    $twitter_user_id = $pull_count = $new_window = $clear_prior = NULL;
+  }
+  
+  // Set up our settings for this particular feed (or update if it already exists)
+  if (!empty($fid)) {
+    $form['fid'] = array(
+      '#type' => 'hidden',
+      '#value' => $fid,
+    );
+  }
+  $form['tweet_feed_query_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Twitter Query Settings'),
+    '#collapsible' => FALSE,
+    '#collapsed' => FALSE,
+    '#weight' => 2,
+  );
+  $form['tweet_feed_query_settings']['feed_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Feed Name'),
+    '#description' => t('The name of the feed as it will appear on administrative forms'),
+    '#default_value' => $feed_name,
+    '#required' => TRUE,
+  );
+  
+  // Get a list of the configured accounts so we can assign this feed to a particular
+  // API account for pulling and allow user to select which one to use
+  $result = db_query('SELECT aid, account_name FROM {tweet_accounts} ORDER BY account_name');
+  while($adata = $result->fetchObject()) {
+    $accounts[$adata->aid] = $adata->account_name;
+  }
+  $form['tweet_feed_query_settings']['aid'] = array(
+    '#type' => 'select',
+    '#title' => t('API Account To Use For Pulling This Feed'),
+    '#options' => $accounts,
+    '#default_value' => $aid,
+    '#required' => TRUE,
+  );
+  
+  $form['tweet_feed_query_settings']['query_type'] = array(
+    '#type' => 'radios',
+    '#title' => t('Type of Twitter Query'),
+    '#options' => array(
+      QUERY_SEARCH => t('Twitter Search'),
+      QUERY_TIMELINE => t('User Timeline Display'),
+      QUERY_LIST => t('User List Display'),
+    ),
+    '#required' => TRUE,
+    '#default_value' => $query_type,
+  );
+  $form['tweet_feed_query_settings']['search_term'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Twitter Search Term'),
+    '#max_length' => 255,
+    '#default_value' => $search_term,
+    '#states' => array(
+      'visible' => array(
+        ':input[name="query_type"]' => array('value' => QUERY_SEARCH),
+      ),
+    ),
+  );
+  $form['tweet_feed_query_settings']['list_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('List name'),
+    '#description' => t('Enter the list name exactly as it appears on twitter.com'),
+    '#max_length' => 255,
+    '#default_value' => $list_name,
+    '#states' => array(
+      'visible' => array(
+        ':input[name="query_type"]' => array('value' => QUERY_LIST),
+      ),
+    ),
+  );  
+  $form['tweet_feed_query_settings']['timeline_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Exact Twitter User ID For Timline Query'),
+    '#description' => t('You can get this by going to mytwitterid.com'),
+    '#max_length' => 255,
+    '#default_value' => $timeline_id,
+    '#states' => array(
+      'visible' => array(
+        ':input[name="query_type"]' => array('value' => QUERY_TIMELINE),
+      ),
+    ),
+  );
+  $form['tweet_feed_query_settings']['pull_count'] = array(
+    '#type' => 'select',
+    '#title' => t('Number of Items to Pull'),
+    '#max_length' => 2,
+    '#options' => array(
+      '100' => '100',
+      '200' => '200',
+      '300' => '300',
+      '400' => '400',
+      '500' => '500',
+      '600' => '600',
+      '700' => '700',
+      '800' => '800',
+      '900' => '900',
+      '1000' => '1000'
+    ),
+    '#description' => t('Twitter limits tweet pulling to 1500 every 15 minutes. Keep this in mind when setting the pull count in conjunction with the frequency of cron/drush runs.'),
+    '#required' => TRUE,
+    '#default_value' => $pull_count,
+  );
+  $form['tweet_feed_query_settings']['new_window'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Open tweeted links, hashtags and mentions in a new window.'),
+    '#default_value' => $new_window,
+  );
+  $form['tweet_feed_query_settings']['clear_prior'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Remove all tweets in this feed prior to import.'),
+    '#default_value' => $clear_prior,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit Settings Form'),
+    '#weight' => 3,
+  );
   return $form;
+}
+
+/**
+ * Submit handler for accounts form
+ *
+ * Take the account information and either save it to a new record or update
+ * an existing one
+ */
+function tweet_feed_feeds_form_submit($form, &$form_state) {
+  // Get a shortcut for our $form_state['values'] array
+  $values = $form_state['values'];
+  
+  // Define our array of data provided by the form
+  $data = array(
+    'aid' => $values['aid'],
+    'feed_name' => $values['feed_name'],
+    'query_type' => $values['query_type'],
+    'timeline_id' => $values['timeline_id'],
+    'search_term' => $values['search_term'],
+    'list_name' => $values['list_name'],
+    'pull_count' => $values['pull_count'],
+    'clear_prior' => $values['clear_prior'],
+    'new_window' => $values['new_window'],
+  );
+  
+  // If aid is empty then we're creating a new record. Otherwise we are updating an
+  // existing one and need to call the proper drupal_write_record function accordingly.
+  if (!empty($values['fid'])) {
+    $data['fid'] = $values['fid'];
+    $status = drupal_write_record('tweet_feeds', $data, array('fid'));
+  } 
+  else {
+    $status = drupal_write_record('tweet_feeds', $data); 
+  }
+  
+  // Go back to the list of accounts when we are done.
+  $form_state['redirect'] = 'admin/config/services/tweet_feed/feeds';
+  
+  // Set the status message based on the result we get from writing our record.
+  switch ($status) {
+    case SAVED_NEW:
+      drupal_set_message('New Twitter feed has been successfully added.', 'status');
+      break;
+    case SAVED_UPDATED:
+      drupal_set_message('Twitter feed has been successfully updated.', 'status');
+      break;
+    case FALSE:
+    default:
+      drupal_set_message('The Twitter feed details provided could not be properly saved to the database.', 'error');
+      break;
+  }
 }
