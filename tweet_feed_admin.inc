@@ -287,7 +287,7 @@ function tweet_feed_feeds_form($form, &$form_state, $fid = 0) {
   else {
     // Otherwise just initialize the form so we do not have a swath of errors 
     $fid = $aid = $query_type = $search_term = $list_name = $feed_name = NULL;
-    $twitter_user_id = $pull_count = $new_window = $clear_prior = NULL;
+    $twitter_user_id = $pull_count = $new_window = $clear_prior = $timeline_id = NULL;
   }
   
   // Set up our settings for this particular feed (or update if it already exists)

@@ -80,5 +80,22 @@ function tweet_feed_schema() {
     ),
     'primary key' => array('aid'),
   );
+  $schema['tweet_hashes'] = array(
+    'fields'=> array(
+      'nid' => array(
+      'type' => 'int',
+      'length' => 11,
+      'not null' => TRUE),
+    'tid' => array(
+      'type' => 'int',
+      'size' => 'big',
+      'not null' => TRUE),
+    'hash' => array(
+      'type' => 'varchar',
+      'length' => 64,
+      'not null' => TRUE),
+    ),
+    'primary key' => array('nid'),
+  );  
   return $schema;
 }
