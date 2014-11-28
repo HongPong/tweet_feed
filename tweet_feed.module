@@ -209,6 +209,7 @@ function tweet_feed_pull_data_from_feed($fid) {
       }
     }
 
+    $data = new stdClass();
     switch ($feed->query_type) {
       case QUERY_TIMELINE:
         $tdata = json_decode($con->oAuthRequest('https://api.twitter.com/1.1/statuses/user_timeline.json', 'GET', $params));
@@ -237,8 +238,8 @@ function tweet_feed_pull_data_from_feed($fid) {
         break;
     }
 
-    if (!empty($tdata) && !empty($tdata->statuses)) {    
-      $data = tweet_feed_process_tweets($tdata->statuses, $feed->query_type);
+    if (!empty($tdata)) {    
+      $tweets_data = tweet_feed_process_tweets($tdata, $feed);
     
       // If this is FALSE, then we have hit an error and need to stop processing
       if ($data['tweets'] === FALSE) {
@@ -246,8 +247,8 @@ function tweet_feed_pull_data_from_feed($fid) {
       }
     
       // merge the total tweets so we know how many we have
-      $tweets = array_merge($data['tweets'], $tweets);
-      $lowest_id = $data['lowest_id'];
+      $tweets = array_merge($tweets_data['tweets'], $tweets);
+      $lowest_id = $tweets_data['lowest_id'];
     }
     else {
       break;
@@ -255,7 +256,7 @@ function tweet_feed_pull_data_from_feed($fid) {
   }
 }
 
-function tweet_feed_process_tweets($tdata, $query_type) {
+function tweet_feed_process_tweets($tdata, $feed) {
   // If we have no tweets to process, go back empty handed
   if (empty($tdata)) {
     return FALSE;
@@ -268,7 +269,7 @@ function tweet_feed_process_tweets($tdata, $query_type) {
     }
   }
   $tweets = array();
-  if ($query_type == QUERY_TIMELINE) {
+  if ($feed->query_type == QUERY_TIMELINE) {
     foreach($tdata as $tweet) {
       // Initialize our update_node_id
       $update_node_id = 0;
@@ -276,7 +277,7 @@ function tweet_feed_process_tweets($tdata, $query_type) {
       // find out if we already have this tweet, if we do, add the update primary key (pk)
       $result = db_query("SELECT nid, tid, hash FROM {tweet_hashes}
                           WHERE tid = :tweet_id", array(':tweet_id' => $tweet->id));
-      if ($tdata->rowCount() > 0) {
+      if ($result->rowCount() > 0) {
         $tdata = $result->fetchObject();
         $hash = md5(serialize($tweet));
       
@@ -288,13 +289,8 @@ function tweet_feed_process_tweets($tdata, $query_type) {
           $update_node_id = $tdata->nid;
         }
       }
-           
-      $creation_timestamp = strtotime($tweet->created_at);
-      $tweet_html = tweet_feed_format_output($tweet->text);
-      $hashtags = tweet_feed_get_hashtags($tweet->entities->hashtags);
 
-
-
+      tweet_feed_save_tweet($tweet, $feed, $update_node_id);
 
 
 
@@ -353,7 +349,7 @@ function tweet_feed_process_hashtags($hashtag_entities) {
     // Now that we have the vocabulary information, see if this term/hashtag already
     // exists and if it does, give us the tid
     $result = db_query('SELECT tid FROM {taxonomy_term_data} 
-                        WHERE vid = :vid AND name = :term', array(':vid' = $vocabulary->vid, ':term' => $entity->text));
+                        WHERE vid = :vid AND name = :term', array(':vid' => $vocabulary->vid, ':term' => $entity->text));
     
     // If we have one, great! If we don't, nwe need to create one and then get the tid
     // that way.
@@ -369,18 +365,19 @@ function tweet_feed_process_hashtags($hashtag_entities) {
     }
     $hashtags[] = $tid;
   }
-  return $tid;
+  return $hashtags;
 }
 
 /**
- * tweet_feed_format_output($tweet)
- * makes links, hash tags, and usernames clickable.
+ * Format Tweet Output to HTML
+ *
+ * Makes links, hash tags, and usernames clickable.
  */
-function tweet_feed_format_output($tweet) {
+function tweet_feed_format_output($tweet, $new_window = FALSE) {
   /* based on our preference, assign all links to new windows or to the same window */
-  $target = (variable_get('tweet_feed_new_window',0) == 1) ? '_blank' : '_self';
+  $target = ($new_window == 1) ? '_blank' : '_self';
 
-  /* look for links and make them clickable */
+  // Look for links and make them clickable
   $tweet = preg_replace('/(((f|ht){1}tp:\/\/)[-a-zA-Z0-9@:%_\+.~#?&\/\/=]+)/i',
     '<a target="'.$target.'" href="\\1">\\1</a>', $tweet);
   $tweet = preg_replace('/(((f|ht){1}tps:\/\/)[-a-zA-Z0-9@:%_\+.~#?&\/\/=]+)/i',
@@ -389,9 +386,20 @@ function tweet_feed_format_output($tweet) {
     '\\1<a target="'.$target.'" href="http:\/\/\\2">\\2</a>', $tweet);
   $tweet = preg_replace('/([_\.0-9a-z-]+@([0-9a-z][0-9a-z-]+\.)+[a-z]{2,3})/i',
     '<a href="mailto:\\1">\\1</a>', $tweet);
-  return $tweet;
-}
 
+  // Look for twitter handles and make them clickable
+  // Modified so that slashes in the twitter handle are counted
+  $pattern = '/@([A-Za-z0-9_]{1,15})(?![.A-Za-z])/';
+  $replace  = '<a target="'.$target.'" href="http://twitter.com/'.strtolower('\1').'">@\1</a>';
+  $tweet   = preg_replace($pattern,$replace,$tweet);
+
+  // Look for twitter hash tags and make them clickable
+  // Modified so that slashes in the twitter handle are counted
+  $tweet = preg_replace('/(^|\s)#(\w*+\w*)/', '\1<a target="'.$target.'" href="http://twitter.com/search?q=%23\2">#\2</a>', $tweet);
+    
+  $tweet = utf8_decode($tweet);
+  return htmlspecialchars_decode($tweet);
+}
 
 /**
  * Custom Set Message Function
@@ -421,4 +429,61 @@ function tweet_feed_set_message($message, $type = 'status') {
       if ($user->uid == 1) drupal_set_message(check_plain($message), $type);
     }
   }
+}
+
+/**
+ *
+ */
+function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0) {
+
+  // Get the creation time of the tweet and store it.
+  $creation_timestamp = strtotime($tweet->created_at);
+  
+  // Process the tweet. This linkes our twitter names, hash tags and converts any 
+  // URL's into HTML.
+  $tweet_html = tweet_feed_format_output($tweet->text, $new_window);
+ 
+  // Add our hash tags to the hashtag taxonomy. If it already exists, then get the tid
+  // for that term. Returns an array of tid's for hashtags used.
+  $hashtags = tweet_feed_process_hashtags($tweet->entities->hashtags);
+  
+  // Get the user's profile image so we can attach it to this tweet. this is done
+  // INDEPENDENTLY of the user profile node type in the event we do not wish to keep
+  // that data (configurable option by feed)
+  $profile_image = tweet_feed_process_image($tweet->protected->profile_image_url);
+  
+  // Populate our node object with the data we will need to save
+  $node = new stdClass();
+  
+  // If we are being passed a node id for updating, then set it here so we update that
+  // node. (might be an edge case)
+  if ($update_node_id > 0) {
+    $node->nid = $update_node_id;
+  }
+  
+  $node->type = 'twitter_tweet_feed';
+  $node->uid = 1;
+  $node->created = $node->changed = $creation_timestamp;
+  $node->status = 1;
+  $node->comment = 0;
+  $node->promote = 0;
+  $node->moderate = 0;
+  $node->sticky = 0;
+  $node->language = 'und';  
+
+}
+
+/**
+ * Process Images from URL
+ * 
+ * Allows the passage of a URL and a saves the resulting image in that URL to a file
+ * that can be attached to our node. These are mostly used in user profiles and avatars
+ * associated with user tweets.
+ */
+function tweet_feed_process_image($url) {
+
+
+
+
+
 }
