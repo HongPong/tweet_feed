@@ -99,3 +99,37 @@ function tweet_feed_schema() {
   );  
   return $schema;
 }
+
+/**
+ * Implements hook_field_schema
+ */
+function tweet_feed_field_schema($field) {
+  if($field['type'] == 'tweet_feed_user_mention') {
+    $schema['columns']['tweet_feed_mention_name'] = array(
+      'description' => 'Name of user mentioned in tweet',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE,
+      'sortable' => FALSE,
+      'views' => TRUE,
+    );
+    $schema['columns']['tweet_feed_mention_screen_name'] = array(
+      'description' => 'Screen Name of user mentioned in tweet',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE,
+      'sortable' => FALSE,
+      'views' => TRUE,
+    );
+    $schema['columns']['tweet_feed_mention_id'] = array(
+      'description' => 'ID of user mentioned in tweet.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE,
+      'sortable' => FALSE,
+      'views' => TRUE,
+    );
+  }
+  return $schema;
+}
+
