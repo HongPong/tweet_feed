@@ -189,40 +189,6 @@ function tweet_feed_field_default_field_bases() {
     'type' => 'text',
   );
 
-  // Exported field_base: 'field_hashtags_used'
-  $field_bases['field_hashtags_used'] = array(
-    'active' => 1,
-    'cardinality' => -1,
-    'deleted' => 0,
-    'entity_types' => array(),
-    'field_name' => 'field_hashtags_used',
-    'foreign keys' => array(
-      'tid' => array(
-        'columns' => array(
-          'tid' => 'tid',
-        ),
-        'table' => 'taxonomy_term_data',
-      ),
-    ),
-    'indexes' => array(
-      'tid' => array(
-        0 => 'tid',
-      ),
-    ),
-    'locked' => 0,
-    'module' => 'taxonomy',
-    'settings' => array(
-      'allowed_values' => array(
-        0 => array(
-          'vocabulary' => 'hashtag_terms',
-          'parent' => 0,
-        ),
-      ),
-    ),
-    'translatable' => 0,
-    'type' => 'taxonomy_term_reference',
-  );
-
   // Exported field_base: 'field_link_color'
   $field_bases['field_link_color'] = array(
     'active' => 1,
@@ -369,35 +335,6 @@ function tweet_feed_field_default_field_bases() {
     'type' => 'text',
   );
 
-  // Exported field_base: 'field_source'
-  $field_bases['field_source'] = array(
-    'active' => 1,
-    'cardinality' => 1,
-    'deleted' => 0,
-    'entity_types' => array(),
-    'field_name' => 'field_source',
-    'foreign keys' => array(
-      'format' => array(
-        'columns' => array(
-          'format' => 'format',
-        ),
-        'table' => 'filter_format',
-      ),
-    ),
-    'indexes' => array(
-      'format' => array(
-        0 => 'format',
-      ),
-    ),
-    'locked' => 0,
-    'module' => 'text',
-    'settings' => array(
-      'max_length' => 255,
-    ),
-    'translatable' => 0,
-    'type' => 'text',
-  );
-
   // Exported field_base: 'field_tweet_author_id'
   $field_bases['field_tweet_author_id'] = array(
     'active' => 1,
@@ -484,6 +421,51 @@ function tweet_feed_field_default_field_bases() {
     ),
     'translatable' => 0,
     'type' => 'text',
+  );
+
+  // Exported field_base: 'field_tweet_source'
+  $field_bases['field_tweet_source'] = array(
+    'active' => 1,
+    'cardinality' => 1,
+    'deleted' => 0,
+    'entity_types' => array(),
+    'field_name' => 'field_tweet_source',
+    'foreign keys' => array(
+      'format' => array(
+        'columns' => array(
+          'format' => 'format',
+        ),
+        'table' => 'filter_format',
+      ),
+    ),
+    'indexes' => array(
+      'format' => array(
+        0 => 'format',
+      ),
+    ),
+    'locked' => 0,
+    'module' => 'text',
+    'settings' => array(
+      'max_length' => 255,
+    ),
+    'translatable' => 0,
+    'type' => 'text',
+  );
+
+  // Exported field_base: 'field_tweet_user_mentions'
+  $field_bases['field_tweet_user_mentions'] = array(
+    'active' => 1,
+    'cardinality' => -1,
+    'deleted' => 0,
+    'entity_types' => array(),
+    'field_name' => 'field_tweet_user_mentions',
+    'foreign keys' => array(),
+    'indexes' => array(),
+    'locked' => 0,
+    'module' => 'tweet_feed',
+    'settings' => array(),
+    'translatable' => 0,
+    'type' => 'tweet_feed_user_mention',
   );
 
   // Exported field_base: 'field_twitter_a_profile_url'
@@ -768,22 +750,6 @@ function tweet_feed_field_default_field_bases() {
     ),
     'translatable' => 0,
     'type' => 'text',
-  );
-
-  // Exported field_base: 'field_user_mentions'
-  $field_bases['field_user_mentions'] = array(
-    'active' => 1,
-    'cardinality' => -1,
-    'deleted' => 0,
-    'entity_types' => array(),
-    'field_name' => 'field_user_mentions',
-    'foreign keys' => array(),
-    'indexes' => array(),
-    'locked' => 0,
-    'module' => 'tweet_feed',
-    'settings' => array(),
-    'translatable' => 0,
-    'type' => 'tweet_feed_user_mention',
   );
 
   return $field_bases;

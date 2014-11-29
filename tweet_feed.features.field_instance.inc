@@ -57,7 +57,7 @@ function tweet_feed_field_default_field_instances() {
         'summary_rows' => 5,
       ),
       'type' => 'text_textarea_with_summary',
-      'weight' => 3,
+      'weight' => 4,
     ),
   );
 
@@ -141,19 +141,21 @@ function tweet_feed_field_default_field_instances() {
     ),
   );
 
-  // Exported field_instance: 'node-twitter_tweet_feed-field_source'
-  $field_instances['node-twitter_tweet_feed-field_source'] = array(
+  // Exported field_instance: 'node-twitter_tweet_feed-field_profile_image'
+  $field_instances['node-twitter_tweet_feed-field_profile_image'] = array(
     'bundle' => 'twitter_tweet_feed',
-    'default_value' => NULL,
     'deleted' => 0,
     'description' => '',
     'display' => array(
       'default' => array(
         'label' => 'above',
-        'module' => 'text',
-        'settings' => array(),
-        'type' => 'text_default',
-        'weight' => 7,
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => 16,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -163,21 +165,29 @@ function tweet_feed_field_default_field_instances() {
       ),
     ),
     'entity_type' => 'node',
-    'field_name' => 'field_source',
-    'label' => 'Source',
+    'field_name' => 'field_profile_image',
+    'label' => 'Profile Image',
     'required' => 0,
     'settings' => array(
-      'text_processing' => 0,
+      'alt_field' => 0,
+      'default_image' => 0,
+      'file_directory' => '',
+      'file_extensions' => 'png gif jpg jpeg',
+      'max_filesize' => '',
+      'max_resolution' => '',
+      'min_resolution' => '',
+      'title_field' => 0,
       'user_register_form' => FALSE,
     ),
     'widget' => array(
       'active' => 1,
-      'module' => 'text',
+      'module' => 'image',
       'settings' => array(
-        'size' => 60,
+        'preview_image_style' => 'thumbnail',
+        'progress_indicator' => 'throbber',
       ),
-      'type' => 'text_textfield',
-      'weight' => 9,
+      'type' => 'image_image',
+      'weight' => 3,
     ),
   );
 
@@ -282,7 +292,7 @@ function tweet_feed_field_default_field_instances() {
         'year_range' => '-3:+3',
       ),
       'type' => 'date_text',
-      'weight' => 7,
+      'weight' => 8,
     ),
   );
 
@@ -329,6 +339,83 @@ function tweet_feed_field_default_field_instances() {
       ),
       'type' => 'text_textfield',
       'weight' => 0,
+    ),
+  );
+
+  // Exported field_instance: 'node-twitter_tweet_feed-field_tweet_source'
+  $field_instances['node-twitter_tweet_feed-field_tweet_source'] = array(
+    'bundle' => 'twitter_tweet_feed',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 14,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_tweet_source',
+    'label' => 'Source',
+    'required' => 0,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'text',
+      'settings' => array(
+        'size' => 60,
+      ),
+      'type' => 'text_textfield',
+      'weight' => 9,
+    ),
+  );
+
+  // Exported field_instance: 'node-twitter_tweet_feed-field_tweet_user_mentions'
+  $field_instances['node-twitter_tweet_feed-field_tweet_user_mentions'] = array(
+    'bundle' => 'twitter_tweet_feed',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => NULL,
+        'settings' => array(),
+        'type' => 'tweet_feed_default',
+        'weight' => 15,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_tweet_user_mentions',
+    'label' => 'User Mentions',
+    'required' => 0,
+    'settings' => array(
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 0,
+      'module' => 'tweet_feed',
+      'settings' => array(),
+      'type' => 'tweet_feed_textfield',
+      'weight' => 11,
     ),
   );
 
@@ -380,7 +467,7 @@ function tweet_feed_field_default_field_instances() {
       'module' => 'number',
       'settings' => array(),
       'type' => 'number',
-      'weight' => 6,
+      'weight' => 7,
     ),
   );
 
@@ -434,7 +521,7 @@ function tweet_feed_field_default_field_instances() {
         'size' => 60,
       ),
       'type' => 'entityreference_autocomplete_tags',
-      'weight' => 4,
+      'weight' => 5,
     ),
   );
 
@@ -486,44 +573,7 @@ function tweet_feed_field_default_field_instances() {
       'module' => 'number',
       'settings' => array(),
       'type' => 'number',
-      'weight' => 5,
-    ),
-  );
-
-  // Exported field_instance: 'node-twitter_tweet_feed-field_user_mentions'
-  $field_instances['node-twitter_tweet_feed-field_user_mentions'] = array(
-    'bundle' => 'twitter_tweet_feed',
-    'default_value' => NULL,
-    'deleted' => 0,
-    'description' => '',
-    'display' => array(
-      'default' => array(
-        'label' => 'above',
-        'module' => NULL,
-        'settings' => array(),
-        'type' => 'tweet_feed_default',
-        'weight' => 13,
-      ),
-      'teaser' => array(
-        'label' => 'above',
-        'settings' => array(),
-        'type' => 'hidden',
-        'weight' => 0,
-      ),
-    ),
-    'entity_type' => 'node',
-    'field_name' => 'field_user_mentions',
-    'label' => 'User Mentions',
-    'required' => 0,
-    'settings' => array(
-      'user_register_form' => FALSE,
-    ),
-    'widget' => array(
-      'active' => 0,
-      'module' => 'tweet_feed',
-      'settings' => array(),
-      'type' => 'tweet_feed_textfield',
-      'weight' => 11,
+      'weight' => 6,
     ),
   );
 
@@ -733,52 +783,6 @@ function tweet_feed_field_default_field_instances() {
       ),
       'type' => 'image_image',
       'weight' => 8,
-    ),
-  );
-
-  // Exported field_instance: 'node-twitter_user_profile-field_hashtags_used'
-  $field_instances['node-twitter_user_profile-field_hashtags_used'] = array(
-    'bundle' => 'twitter_user_profile',
-    'default_value' => NULL,
-    'deleted' => 0,
-    'description' => '',
-    'display' => array(
-      'default' => array(
-        'label' => 'above',
-        'module' => 'taxonomy',
-        'settings' => array(),
-        'type' => 'taxonomy_term_reference_link',
-        'weight' => 17,
-      ),
-      'entityreference_view_widget' => array(
-        'label' => 'above',
-        'settings' => array(),
-        'type' => 'hidden',
-        'weight' => 0,
-      ),
-      'teaser' => array(
-        'label' => 'above',
-        'settings' => array(),
-        'type' => 'hidden',
-        'weight' => 0,
-      ),
-    ),
-    'entity_type' => 'node',
-    'field_name' => 'field_hashtags_used',
-    'label' => 'Hashtags Used',
-    'required' => 0,
-    'settings' => array(
-      'user_register_form' => FALSE,
-    ),
-    'widget' => array(
-      'active' => 0,
-      'module' => 'taxonomy',
-      'settings' => array(
-        'autocomplete_path' => 'taxonomy/autocomplete',
-        'size' => 60,
-      ),
-      'type' => 'taxonomy_autocomplete',
-      'weight' => 11,
     ),
   );
 

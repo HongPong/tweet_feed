@@ -44,12 +44,6 @@ function tweet_feed_field_presave($entity_type, $entity, $field, $instance, $lan
       }
     }
   }
-  
-  print "<pre>";
-  print_r($items);
-  exit();
-  
-  
 }
 
 
@@ -84,12 +78,13 @@ function tweet_feed_field_formatter_view($entity_type, $entity, $field, $instanc
   switch ($display['type']) {
     // Override check plain
     case 'tweet_feed_user_mentions':
-      foreach ($items as $item) {
+      foreach ($items as $delta=>$item) {
         $mentions[] = $item['tweet_feed_mention_name'] . ' (' . $item['tweet_feed_mention_screen_name'] . '): ' . $item['tweet_feed_mention_id'];
       }
-      $mentions = implode('<br />', $metions);
+      $mentions = implode('<br />', $mentions);
       $element[$delta] = array(
-        '#markup' => $titles,
+        '#title' => 'WHAT?!',
+        '#markup' => $mentions,
       );
       break;
   }

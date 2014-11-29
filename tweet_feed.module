@@ -470,8 +470,70 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0) {
   $node->promote = 0;
   $node->moderate = 0;
   $node->sticky = 0;
-  $node->language = 'und';  
+  $node->language = 'und';
+  
+  // The tweet author goes into the title field
+  $node->title = $tweet->user->screen_name . ': ' . $tweet->user->name;
+  
+  // The tweet itself goes into the body field
+  $node->body['und'][0] = array(
+    'value' => $tweet_html,
+    'format' => 'full_html',
+    'safe_value' => $tweet_html,
+  );
+  
+  // Geographic Information if it exist
+  $node->field_geographic_coordinates['und'][0] = array(
+    'value' => $tweet->geo->coordinates,
+    'safe_value' => $tweet->geo->coordinates,
+  );
+  $node->field_geographic_place['und'][0] = array(
+    'value' => $tweet->geo->place,
+    'safe_value' => $tweet->geo->place,
+  );
+  
+  // Handle the author id
+  $node->field_tweet_author_id['und'][0] = array(
+    'value' => $tweet->user->id,
+    'safe_value' => $tweet->user->id,
+  );
+  
+  // Handle the tweet creation date
+  $node->field_tweet_creation_date['und'][0] = array(
+    'value' => date('Y-m-d H:i:s', strtotime($tweet->created_at)),
+    'timezone' => 'UTC/GMT',
+    'timezone_db' => 'UTC/GMT',
+    'datatype' => 'datetime',
+  );
+  
+  // Handle the tweet id 
+  $node->field_tweet_id['und'][0] = array(
+    'value' => $tweet->id,
+    'safe_value' => (int)$tweet->id,
+  );
+  
+  // Handle the favorite count for this tweet
+  $node->field_twitter_favorite_count['unc'][0]['value'] = $tweet->geo->favorite_count;
+  
+  // Handle the hashtags 
+  foreach ($hashtags as $hashtag) {
+    $node->field_twitter_hashtags['und'][] = array(
+      'target_id' => $hashtag,
+    );
+  }
+  
+  // Handle the re-tweet count
+  $node->field_twitter_retweet_count['und'][0]['value'] = $tweet->geo->retweet_count;
+  
+  // Handle the tweet source
+  $node->field_tweet_source['und'][0] = array(
+    'value' => $tweet->source,
+    'safe_value' => strip_tags($tweet->source),
+  );
 
+  // Handle user mentions (our custom field defined by the module)
+  
+  
 }
 
 /**
