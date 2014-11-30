@@ -136,7 +136,7 @@ function tweet_feed_permission() {
  * Implements hook_cron
  */
 function tweet_feed_cron() {
-  tweet_feed_process_all_feeds();
+  //tweet_feed_process_all_feeds();
 }
 
 function tweet_feed_process_all_feeds() {
@@ -161,9 +161,14 @@ function tweet_feed_get_feed_object($fid) {
   return $feed;
 }
 
-
+/**
+ * Get Twitter Data
+ *
+ * Pull data from the feed given our internal feed id. Our feed object also contains the
+ * information about the account associated with this feed (reference) so we have everything
+ * we need to connect via the Twitter API and retrieve the data.
+ */
 function tweet_feed_pull_data_from_feed($fid) {
-  
   // If the fid is empty then we do not have enough information by which to pull data.
   // When this is the case, we need to bail.
   if (empty($fid)) {
@@ -270,6 +275,7 @@ function tweet_feed_process_tweets($tdata, $feed) {
     }
   }
   $tweets = array();
+  
   if ($feed->query_type == QUERY_TIMELINE) {
     foreach($tdata as $tweet) {
       // Initialize our update_node_id
@@ -436,23 +442,17 @@ function tweet_feed_set_message($message, $type = 'status') {
  *
  */
 function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0) {
-
   // Get the creation time of the tweet and store it.
   $creation_timestamp = strtotime($tweet->created_at);
   
   // Process the tweet. This linkes our twitter names, hash tags and converts any 
   // URL's into HTML.
-  $tweet_html = tweet_feed_format_output($tweet->text, $new_window);
+  $tweet_html = tweet_feed_format_output($tweet->text, $feed->new_window);
  
   // Add our hash tags to the hashtag taxonomy. If it already exists, then get the tid
   // for that term. Returns an array of tid's for hashtags used.
   $hashtags = tweet_feed_process_hashtags($tweet->entities->hashtags);
-  
-  // Get the user's profile image so we can attach it to this tweet. this is done
-  // INDEPENDENTLY of the user profile node type in the event we do not wish to keep
-  // that data (configurable option by feed)
-  $profile_image = tweet_feed_process_image($tweet->protected->profile_image_url);
-  
+    
   // Populate our node object with the data we will need to save
   $node = new stdClass();
   
@@ -484,12 +484,12 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0) {
   
   // Geographic Information if it exist
   $node->field_geographic_coordinates['und'][0] = array(
-    'value' => $tweet->geo->coordinates,
-    'safe_value' => $tweet->geo->coordinates,
+    'value' => $tweet->place->full_name . ', ' . $tweet->place->country,
+    'safe_value' => $tweet->place->full_name . ', ' . $tweet->place->country,
   );
   $node->field_geographic_place['und'][0] = array(
-    'value' => $tweet->geo->place,
-    'safe_value' => $tweet->geo->place,
+    'value' => $tweet->place->full_name . ', ' . $tweet->place->country,
+    'safe_value' => $tweet->place->full_name . ', ' . $tweet->place->country,
   );
   
   // Handle the author id
@@ -513,7 +513,7 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0) {
   );
   
   // Handle the favorite count for this tweet
-  $node->field_twitter_favorite_count['unc'][0]['value'] = $tweet->geo->favorite_count;
+  $node->field_twitter_favorite_count['unc'][0]['value'] = $tweet->favorite_count;
   
   // Handle the hashtags 
   foreach ($hashtags as $hashtag) {
@@ -523,7 +523,7 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0) {
   }
   
   // Handle the re-tweet count
-  $node->field_twitter_retweet_count['und'][0]['value'] = $tweet->geo->retweet_count;
+  $node->field_twitter_retweet_count['und'][0]['value'] = $tweet->retweet_count;
   
   // Handle the tweet source
   $node->field_tweet_source['und'][0] = array(
@@ -532,7 +532,32 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0) {
   );
 
   // Handle user mentions (our custom field defined by the module)
+  if (!empty($tweet->entities->user_mentions) && is_array($tweet->entities->user_mentions)) {
+    foreach ($tweet->entities->user_mentions as $key=>$mention) {
+      $node->field_tweet_user_mentions['und'][$key] = array(
+        'tweet_feed_mention_name' => $mention->name,
+        'tweet_feed_mention_screen_name' => $mention->screen_name,
+        'tweet_feed_mention_id' => $mention->id,
+      );
+    }
+  }
   
+  // Not sure about this method of getting the big twitter profile image, but we're 
+  // going to roll with it for now/
+  $tweet->user->profile_image_url = str_replace('_normal', '', $tweet->user->profile_image_url);
+  
+  // Handle the profile image obtained from twitter.com
+  $file = tweet_feed_process_twitter_image($tweet->user->profile_image_url, 'tweet-feed-profile-image', $tweet->id);
+  if ($file !== NULL) {
+    $node->field_profile_image['und'][0] = (array)$file;
+  }
+  
+  // Save the node
+  node_save($node);
+  
+  // If we are creating a user profile for the person who made this tweet, then we need
+  // to either create it or update it here. To determine create/update we need to check
+  // the hash of the profile id and see if it matches our data.
   
 }
 
@@ -543,10 +568,27 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0) {
  * that can be attached to our node. These are mostly used in user profiles and avatars
  * associated with user tweets.
  */
-function tweet_feed_process_image($url) {
-
-
-
-
-
+function tweet_feed_process_twitter_image($url, $type, $tid= NULL) {
+  // Get the contents of the file for processing.
+  $contents = file_get_contents($url);
+  
+  // Save the contents of the file to the file system and create the filename and uri
+  $file = file_save_data($contents, 'public://' . $type . '/' . md5($url) . '.jpg', FILE_EXISTS_REPLACE);
+  
+  // Sanity check to make sure the file saved
+  if ($file === FALSE) {
+    watchdog('tweet_feed', 'The :type for :tid could not be properly saved.', array(':type' => $type, ':tid' => $tid), WATCHDOG_ERROR, NULL);
+  }
+  
+  // Update our file object and re-save the file object to the database to make sure we
+  // have the right information
+  $file->uid = 1;
+  $file->status = 1;
+  file_save($file);
+  
+  // Record the file's usgae so it is not deleted as a temporary file
+  file_usage_add($file, 'tweet_feed', 'file', $file->fid);
+  
+  // Return the file object so we can save it to our node
+  return $file;
 }
