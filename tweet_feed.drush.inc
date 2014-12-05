@@ -20,6 +20,6 @@ function tweet_feed_drush_command() {
  *
  * Implements drush_HOOK_COMMAND
  */
-function drush_tf_import_tweets() {
+function drush_tweet_feed_tf_import_tweets() {
   tweet_feed_process_all_feeds();
 }
