@@ -19,19 +19,30 @@ function tweet_feed_menu() {
   $items['admin/config/services/tweet_feed'] = array(
     'title' => t('Tweet Feed'),
     'description' => t('The settings for the Tweet Feed module'),
-    'page callback' => 'tweet_feed_accounts_table',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tweet_feed_settings_form'),
     'access callback' => 'user_access',
     'access arguments' => array('administer tweet feed settings'),
     'file' => 'tweet_feed_admin.inc',
     'type' => MENU_NORMAL_ITEM,
   );
-  $items['admin/config/services/tweet_feed/run'] = array(
-    'title' => t('DEBUG: Do Import'),
-    'page callback' => 'tweet_feed_process_all_feeds',
+  $items['admin/config/services/tweet_feed/settings'] = array(
+    'title' => t('Settings'),
+    'description' => t('The settings for the Tweet Feed module'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tweet_feed_settings_form'),
     'access callback' => 'user_access',
     'access arguments' => array('administer tweet feed settings'),
-    'type' => MENU_NORMAL_ITEM,
+    'file' => 'tweet_feed_admin.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
   );
+  //$items['admin/config/services/tweet_feed/run'] = array(
+  //  'title' => t('DEBUG: Do Import'),
+  //  'page callback' => 'tweet_feed_process_all_feeds',
+  //  'access callback' => 'user_access',
+  //  'access arguments' => array('administer tweet feed settings'),
+  //  'type' => MENU_NORMAL_ITEM,
+  //);
   $items['admin/config/services/tweet_feed/accounts'] = array(
     'title' => t('Twitter API Accounts'),
     'description' => t('List of available API accounts used to collect feeds.'),
@@ -39,7 +50,7 @@ function tweet_feed_menu() {
     'access callback' => 'user_access',
     'access arguments' => array('administer tweet feed settings'),
     'file' => 'tweet_feed_admin.inc',
-    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'type' => MENU_LOCAL_TASK,
   );
   $items['admin/config/services/tweet_feed/feeds'] = array(
     'title' => t('Twitter Feeds'),
@@ -441,6 +452,11 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
     $node->nid = $update_node_id;
   }
   
+  // Because we modify the tweet to get source images, we need to get the hash before
+  // we do any of our processing
+  $tweet_hash = md5(serialize($tweet));
+  
+  // Get started with our node data structure
   $node->type = 'twitter_tweet_feed';
   $node->uid = 1;
   $node->created = $node->changed = $creation_timestamp;
@@ -538,21 +554,134 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
   // for this node and updating
   db_delete('tweet_hashes')->condition('nid', $node->nid)->execute();
   $hash_insert = array(
+    'tid' => $tweet->id,
     'nid' => $node->nid,
-    'hash' => $hash,
+    'hash' => $tweet_hash,
   );
   drupal_write_record('tweet_hashes', $hash_insert);
   tweet_feed_set_message('Tweet Saved: ' . $tweet->text, 'ok');
   
+  // Unset the node variable so we can re-use it
+  unset($node);
+  
   // If we are creating a user profile for the person who made this tweet, then we need
   // to either create it or update it here. To determine create/update we need to check
   // the hash of the profile id and see if it matches our data.
-  if (1 || variable_get('tweet_feed_get_tweeter_profiles', FALSE) == TRUE) {
+  if (variable_get('tweet_feed_get_tweeter_profiles', FALSE) == TRUE) {
+    // See if we have a profile for the author if this tweet. If we do not then we do not
+    // need to do the rest of the checks
+    $query = new EntityFieldQuery();
+    $result = $query->entityCondition('entity_type', 'node')
+                    ->entityCondition('bundle', 'twitter_user_profile')
+                    ->fieldCondition('field_twitter_user_id', 'value', $tweet->user->id, '=')
+                    ->execute();
+    // If we have a result, then we have a profile! Then we need to check to see if the hash
+    // of the profile is the same as the hash of the user data. If so, then update. If not,
+    // then skip and on to the next
+    if (isset($result['node'])) {
+      $user_hash = md5(serialize($tweet->user));
+      $result = db_query("SELECT nid, tuid, hash FROM {tweet_user_hashes}
+                          WHERE tuid = :tweet_user_id", array(':tweet_user_id' => $tweet->user->id));
+      if ($result->rowCount() > 0) {
+        $tdata = $result->fetchObject();
+        // If our hashes are equal, we have nothing to update and can move along
+        if ($user_hash == $tdata->hash) {
+          return;
+        }
+        else {
+          $update_node_id = $tdata->nid;
+        }
+      }
+    }
   
-  
-  
-  
-  
+    // Populate our node object with the data we will need to save
+    $node = new stdClass();
+
+    // If we are being passed a node id for updating, then set it here so we update that
+    // node. (might be an edge case)
+    if ($update_node_id > 0) {
+      $node->nid = $update_node_id;
+    }
+
+    // Initialize the standard parts of our tweeting node.
+    $node->type = 'twitter_user_profile';
+    $node->uid = 1;
+    $node->created = $node->changed = $creation_timestamp;
+    $node->status = 1;
+    $node->comment = 0;
+    $node->promote = 0;
+    $node->moderate = 0;
+    $node->sticky = 0;
+    $node->language = 'und';
+    
+    $node->field_twitter_user_id[$node->language][0]['value'] = $tweet->user->id_str;
+    $node->title = $tweet->user->name;
+    $node->body[$node->language][0]['value'] = $tweet->user->description;
+    $node->field_twitter_a_screen_name[$node->language][0]['value'] = $tweet->user->screen_name;
+    $node->field_twitter_location[$node->language][0]['value'] = $tweet->user->location;
+    $node->field_twitter_a_profile_url[$node->language][0]['value'] = $tweet->user->entities->url->urls[0]->url;
+    $node->field_twitter_profile_url[$node->language][0]['value'] = $tweet->user->entities->url->urls[0]->display_url;
+    $node->field_twitter_followers[$node->language][0]['value'] = $tweet->user->followers_count;
+    $node->field_twitter_following[$node->language][0]['value'] = $tweet->user->friends_count;
+    $node->field_twitter_favorites_count[$node->language][0]['value'] = $tweet->user->favourites_count;
+    $node->field_twitter_tweet_count[$node->language][0]['value'] = $tweet->user->statuses_count;
+     
+    // Handle the profile background image obtained from twitter.com
+    $file = tweet_feed_process_twitter_image($tweet->user->profile_background_image_url, 'tweet-feed-profile-background-image', $tweet->user->id_str);
+    if ($file !== NULL) {
+      $node->field_background_image['und'][0] = (array)$file;
+    }
+
+    // Handle the user profile image obtained from twitter.com
+    $file = tweet_feed_process_twitter_image($tweet->user->profile_image_url, 'tweet-feed-profile-user-profile-image', $tweet->user->id_str);
+    if ($file !== NULL) {
+      $node->field_profile_image['und'][0] = (array)$file;
+    }
+
+    // Handle the user profile banner image obtained from twitter.com
+    $file = tweet_feed_process_twitter_image($tweet->user->profile_banner_url, 'tweet-feed-profile-banner-image', $tweet->user->id_str);
+    if ($file !== NULL) {
+      $node->field_banner_image['und'][0] = (array)$file;
+    }
+    
+    $node->field_background_color[$node->language][0]['value'] = $tweet->user->profile_background_color;
+    $node->field_profile_text_color[$node->language][0]['value'] = $tweet->user->profile_text_color;
+    $node->field_link_color[$node->language][0]['value'] = $tweet->user->profile_link_color;
+    $node->field_sidebar_border_color[$node->language][0]['value'] = $tweet->user->profile_sidebar_border_color;
+    $node->field_sidebar_fill_color[$node->language][0]['value'] = $tweet->user->profile_sidebar_fill_color;
+
+    node_save($node);
+
+    // Make sure the hash in our tweet_hashes table is right by deleting what is there
+    // for this node and updating
+    db_delete('tweet_user_hashes')->condition('nid', $node->nid)->execute();
+    $hash_insert = array(
+      'tuid' => $tweet->user->id_str,
+      'nid' => $node->nid,
+      'hash' => $user_hash,
+    );
+    drupal_write_record('tweet_user_hashes', $hash_insert);
+    tweet_feed_set_message('Tweet Profile Saved: ' . $tweet->user->name . '(' . $tweet->user->screen_name . ')', 'ok');
+  }
+}
+
+/**
+ * Implements hook_node_delete
+ *
+ * Remove hashes when tweets or profiles deleted
+ */
+function tweet_feed_node_delete($node) {
+  switch($node->type) {
+    case 'twitter_tweet_feed':
+      db_delete('tweet_hashes')->condition('nid', $node->nid)->execute();
+      break;
+    
+    case 'twitter_user_profile':
+      db_delete('tweet_user_hashes')->condition('nid', $node->nid)->execute();
+      break;
+    
+    default:
+      break;
   }
 }
 
@@ -564,6 +693,11 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
  * associated with user tweets.
  */
 function tweet_feed_process_twitter_image($url, $type, $tid= NULL) {
+  // If there is no URL, then there is no image and we must skip
+  if (!isset($url)) {
+    return NULL;
+  }
+
   // Get the contents of the file for processing.
   $contents = file_get_contents($url);
   
@@ -573,6 +707,7 @@ function tweet_feed_process_twitter_image($url, $type, $tid= NULL) {
   // Sanity check to make sure the file saved
   if ($file === FALSE) {
     watchdog('tweet_feed', 'The :type for :tid could not be properly saved.', array(':type' => $type, ':tid' => $tid), WATCHDOG_ERROR, NULL);
+    return NULL;
   }
   
   // Update our file object and re-save the file object to the database to make sure we

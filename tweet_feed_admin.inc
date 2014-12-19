@@ -460,3 +460,18 @@ function tweet_feed_feeds_form_submit($form, &$form_state) {
       break;
   }
 }
+
+/**
+ * General Settings Form
+ *
+ * A place to set up various global options for all tweet feeds
+ */
+function tweet_feed_settings_form($form, &$form_state) {
+  $form['tweet_feed_get_tweeter_profiles'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Save user profile information for each unique tweeter in feeds.'),
+    '#description' => t('This will create a node record for every person who tweets in your feed.'),
+    '#default_value' => variable_get('tweet_feed_get_tweeter_profiles', 0),
+  );
+  return system_settings_form($form);
+}
