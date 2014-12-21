@@ -294,7 +294,7 @@ function tweet_feed_process_tweets($tdata, $feed) {
   
   $tweets = array();
   
-  if ($feed->query_type == QUERY_TIMELINE) {
+  if ($feed->query_type == QUERY_TIMELINE || $feed->query_type == QUERY_LIST) {
     $tweet_data = $tdata;
   }
   else {
@@ -467,7 +467,7 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
   $node->language = 'und';
   
   // The tweet author goes into the title field
-  $node->title = $tweet->user->screen_name . ': ' . $tweet->text;
+  $node->title = $tweet->user->screen_name . ': ' . utf8_decode($tweet->text);
   
   // The tweet itself goes into the body field
   $node->body['und'][0] = array(
@@ -713,7 +713,12 @@ function tweet_feed_process_twitter_image($url, $type, $tid= NULL) {
   }
 
   // Get the contents of the file for processing.
-  $contents = file_get_contents($url);
+  $contents = @file_get_contents($url);
+  
+  // If there are no contents, then go back
+  if (empty($contents)) {
+    return NULL;
+  }
   
   // Save the contents of the file to the file system and create the filename and uri
   $file = file_save_data($contents, 'public://' . $type . '/' . md5($url) . '.jpg', FILE_EXISTS_REPLACE);

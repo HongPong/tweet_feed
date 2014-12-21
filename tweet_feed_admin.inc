@@ -348,6 +348,21 @@ function tweet_feed_feeds_form($form, &$form_state, $fid = 0) {
       ),
     ),
   );
+  $form['tweet_feed_query_settings']['timeline_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Exact Twitter User ID For Timline Query'),
+    '#description' => t('You can get this by going to mytwitterid.com'),
+    '#max_length' => 255,
+    '#default_value' => $timeline_id,
+    '#states' => array(
+      'visible' => array(
+        ':input[name="query_type"]' => array(
+          array('value' => QUERY_TIMELINE),
+          array('value' => QUERY_LIST),
+        ),
+      ),
+    ),
+  );
   $form['tweet_feed_query_settings']['list_name'] = array(
     '#type' => 'textfield',
     '#title' => t('List name'),
@@ -360,18 +375,6 @@ function tweet_feed_feeds_form($form, &$form_state, $fid = 0) {
       ),
     ),
   );  
-  $form['tweet_feed_query_settings']['timeline_id'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Exact Twitter User ID For Timline Query'),
-    '#description' => t('You can get this by going to mytwitterid.com'),
-    '#max_length' => 255,
-    '#default_value' => $timeline_id,
-    '#states' => array(
-      'visible' => array(
-        ':input[name="query_type"]' => array('value' => QUERY_TIMELINE),
-      ),
-    ),
-  );
   $form['tweet_feed_query_settings']['pull_count'] = array(
     '#type' => 'select',
     '#title' => t('Number of Items to Pull'),
