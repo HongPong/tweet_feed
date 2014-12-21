@@ -36,13 +36,6 @@ function tweet_feed_menu() {
     'file' => 'tweet_feed_admin.inc',
     'type' => MENU_DEFAULT_LOCAL_TASK,
   );
-  //$items['admin/config/services/tweet_feed/run'] = array(
-  //  'title' => t('DEBUG: Do Import'),
-  //  'page callback' => 'tweet_feed_process_all_feeds',
-  //  'access callback' => 'user_access',
-  //  'access arguments' => array('administer tweet feed settings'),
-  //  'type' => MENU_NORMAL_ITEM,
-  //);
   $items['admin/config/services/tweet_feed/accounts'] = array(
     'title' => t('Twitter API Accounts'),
     'description' => t('List of available API accounts used to collect feeds.'),
@@ -143,13 +136,6 @@ function tweet_feed_permission() {
   );
 }
 
-/**
- * Implements hook_cron
- */
-function tweet_feed_cron() {
-  //tweet_feed_process_all_feeds();
-}
-
 function tweet_feed_process_all_feeds() {
   // load in the fid's for active feeds and then run them through 
   // tweet_feed_pull_data_from_feed
@@ -195,11 +181,24 @@ function tweet_feed_pull_data_from_feed($fid) {
 
   // If we have selected to clear our prior tweets for this particular feed, then we need
   // to do that here.
-  if (0 && !empty($feed->clear_prior)) {
+  if (!empty($feed->clear_prior)) {
     // All tweets are nodes, so we do an entity query to get the node id's for the tweets
     // belonging to this feed and delete them. It's conceivable that this could take some
     // time.
     tweet_feed_set_message('Clearing Previous Tweets', 'ok');
+    $query = new EntityFieldQuery();
+    $result = $query->entityCondition('entity_type', 'node')
+                    ->entityCondition('bundle', 'twitter_tweet_feed')
+                    ->fieldCondition('field_tweet_feed_id', 'value', $fid, '=')
+                    ->execute();
+    if (isset($result['node'])) {
+      foreach ($result['node'] as $nid=>$node) {
+        $n = node_load($nid);
+        node_delete($nid);
+        tweet_feed_set_message($n->title . ': DELETED', 'ok');
+      }
+    }
+    tweet_feed_set_message('All previous tweets for this feed are deleted.', 'ok');
   }
   
   // Build TwitterOAuth object with client credentials 
@@ -477,15 +476,27 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
     'safe_value' => $tweet_html,
   );
   
+  // Save the feed ID for this tweet
+  $node->field_tweet_feed_id['und'][0]['value'] = $feed->fid;
+  
   // Geographic Information if it exist
   $node->field_geographic_coordinates['und'][0] = array(
     'value' => $tweet->place->full_name . ', ' . $tweet->place->country,
     'safe_value' => $tweet->place->full_name . ', ' . $tweet->place->country,
   );
-  $node->field_geographic_place['und'][0] = array(
-    'value' => $tweet->place->full_name . ', ' . $tweet->place->country,
-    'safe_value' => $tweet->place->full_name . ', ' . $tweet->place->country,
-  );
+  
+  // If we have a place, then assign it based on which components we have available
+  // to us.
+  if (!empty($tweet->place->full_name)) {  
+    $node->field_geographic_place['und'][0] = array(
+      'value' => $tweet->place->full_name,
+      'safe_value' => $tweet->place->full_name,
+    );
+    if (!empty($tweet->place->country)) {
+      $node->field_geographic_place['und'][0]['value'] .= ', ' . $tweet->place->country;
+      $node->field_geographic_place['und'][0]['safe_value'] .= ', ' . $tweet->place->country;
+    }
+  }
   
   // Handle the author id
   $node->field_tweet_author_id['und'][0] = array(
@@ -525,6 +536,9 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
     'value' => $tweet->source,
     'safe_value' => strip_tags($tweet->source),
   );
+  
+  // Create a direct link to this tweet 
+  $node->field_link_to_tweet['und'][0]['value'] = 'https://twitter.com/' . $tweet->user->screen_name . '/status/' . (int)$tweet->id;
 
   // Handle user mentions (our custom field defined by the module)
   if (!empty($tweet->entities->user_mentions) && is_array($tweet->entities->user_mentions)) {
@@ -538,7 +552,7 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
   }
   
   // Not sure about this method of getting the big twitter profile image, but we're 
-  // going to roll with it for now/
+  // going to roll with it for now.
   $tweet->user->profile_image_url = str_replace('_normal', '', $tweet->user->profile_image_url);
   
   // Handle the profile image obtained from twitter.com
