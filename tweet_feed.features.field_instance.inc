@@ -10,57 +10,6 @@
 function tweet_feed_field_default_field_instances() {
   $field_instances = array();
 
-  // Exported field_instance: 'node-twitter_tweet_feed-body'
-  $field_instances['node-twitter_tweet_feed-body'] = array(
-    'bundle' => 'twitter_tweet_feed',
-    'default_value' => NULL,
-    'deleted' => 0,
-    'description' => '',
-    'display' => array(
-      'default' => array(
-        'label' => 'hidden',
-        'module' => 'text',
-        'settings' => array(),
-        'type' => 'text_default',
-        'weight' => 0,
-      ),
-      'entityreference_view_widget' => array(
-        'label' => 'above',
-        'settings' => array(),
-        'type' => 'hidden',
-        'weight' => 0,
-      ),
-      'teaser' => array(
-        'label' => 'hidden',
-        'module' => 'text',
-        'settings' => array(
-          'trim_length' => 600,
-        ),
-        'type' => 'text_summary_or_trimmed',
-        'weight' => 0,
-      ),
-    ),
-    'entity_type' => 'node',
-    'field_name' => 'body',
-    'label' => 'Tweet Contents',
-    'required' => 0,
-    'settings' => array(
-      'display_summary' => 0,
-      'text_processing' => 1,
-      'user_register_form' => FALSE,
-    ),
-    'widget' => array(
-      'active' => 1,
-      'module' => 'text',
-      'settings' => array(
-        'rows' => 20,
-        'summary_rows' => 5,
-      ),
-      'type' => 'text_textarea_with_summary',
-      'weight' => 5,
-    ),
-  );
-
   // Exported field_instance: 'node-twitter_tweet_feed-field_geographic_coordinates'
   $field_instances['node-twitter_tweet_feed-field_geographic_coordinates'] = array(
     'bundle' => 'twitter_tweet_feed',
@@ -177,7 +126,7 @@ function tweet_feed_field_default_field_instances() {
         'size' => 60,
       ),
       'type' => 'text_textfield',
-      'weight' => 11,
+      'weight' => 14,
     ),
   );
 
@@ -227,7 +176,47 @@ function tweet_feed_field_default_field_instances() {
         'progress_indicator' => 'throbber',
       ),
       'type' => 'image_image',
-      'weight' => 4,
+      'weight' => 5,
+    ),
+  );
+
+  // Exported field_instance: 'node-twitter_tweet_feed-field_tweet_author'
+  $field_instances['node-twitter_tweet_feed-field_tweet_author'] = array(
+    'bundle' => 'twitter_tweet_feed',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 19,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_tweet_author',
+    'label' => 'Tweet Author',
+    'required' => 0,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'text',
+      'settings' => array(
+        'size' => 60,
+      ),
+      'type' => 'text_textfield',
+      'weight' => 3,
     ),
   );
 
@@ -273,7 +262,47 @@ function tweet_feed_field_default_field_instances() {
         'size' => 60,
       ),
       'type' => 'text_textfield',
-      'weight' => 3,
+      'weight' => 4,
+    ),
+  );
+
+  // Exported field_instance: 'node-twitter_tweet_feed-field_tweet_contents'
+  $field_instances['node-twitter_tweet_feed-field_tweet_contents'] = array(
+    'bundle' => 'twitter_tweet_feed',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 20,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_tweet_contents',
+    'label' => 'Tweet Contents',
+    'required' => 0,
+    'settings' => array(
+      'text_processing' => 1,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'text',
+      'settings' => array(
+        'rows' => 3,
+      ),
+      'type' => 'text_textarea',
+      'weight' => 7,
     ),
   );
 
@@ -332,7 +361,7 @@ function tweet_feed_field_default_field_instances() {
         'year_range' => '-3:+3',
       ),
       'type' => 'date_text',
-      'weight' => 9,
+      'weight' => 11,
     ),
   );
 
@@ -464,7 +493,7 @@ function tweet_feed_field_default_field_instances() {
         'size' => 60,
       ),
       'type' => 'text_textfield',
-      'weight' => 10,
+      'weight' => 12,
     ),
   );
 
@@ -501,7 +530,7 @@ function tweet_feed_field_default_field_instances() {
       'module' => 'tweet_feed',
       'settings' => array(),
       'type' => 'tweet_feed_textfield',
-      'weight' => 13,
+      'weight' => 15,
     ),
   );
 
@@ -553,7 +582,7 @@ function tweet_feed_field_default_field_instances() {
       'module' => 'number',
       'settings' => array(),
       'type' => 'number',
-      'weight' => 8,
+      'weight' => 10,
     ),
   );
 
@@ -607,7 +636,7 @@ function tweet_feed_field_default_field_instances() {
         'size' => 60,
       ),
       'type' => 'entityreference_autocomplete_tags',
-      'weight' => 6,
+      'weight' => 8,
     ),
   );
 
@@ -659,7 +688,7 @@ function tweet_feed_field_default_field_instances() {
       'module' => 'number',
       'settings' => array(),
       'type' => 'number',
-      'weight' => 7,
+      'weight' => 9,
     ),
   );
 
@@ -1577,6 +1606,7 @@ function tweet_feed_field_default_field_instances() {
   t('Source');
   t('The Twitter provided description for this user.');
   t('This is the display URL for the user\'s profile. It is not shortened.');
+  t('Tweet Author');
   t('Tweet Author ID');
   t('Tweet Contents');
   t('Tweet Count');

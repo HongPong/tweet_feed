@@ -68,6 +68,10 @@ function tweet_feed_field_formatter_info() {
       'label' => t('User Mentions'),
       'field types' => array('tweet_feed_user_mention'),
     ),
+    'emoji_formatter' => array(
+      'label' => t('Emoji Formatter'),
+      'field types' => array('text_with_summary', 'text', 'text_long'),
+    ),
   );
 }
 /**
@@ -83,13 +87,21 @@ function tweet_feed_field_formatter_view($entity_type, $entity, $field, $instanc
       }
       $mentions = implode('<br />', $mentions);
       $element[$delta] = array(
-        '#title' => 'WHAT?!',
         '#markup' => $mentions,
       );
+      break;
+    // Give us a way to display emoji.
+    case 'emoji_formatter':
+      foreach ($items as $delta=>$item) {
+        $element[$delta] = array(
+          '#markup' => utf8_decode($item['value']),
+        );
+      }
       break;
   }
   return $element;
 }
+
 
 /**
  * Implements hook_field_widget_form
