@@ -480,10 +480,10 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
   $node->field_tweet_feed_id['und'][0]['value'] = $feed->fid;
   
   // Geographic Information if it exist
-  $node->field_geographic_coordinates['und'][0] = array(
-    'value' => $tweet->place->full_name . ', ' . $tweet->place->country,
-    'safe_value' => $tweet->place->full_name . ', ' . $tweet->place->country,
-  );
+  //$node->field_geographic_coordinates['und'][0] = array(
+  //  'value' => $tweet->place->full_name . ', ' . $tweet->place->country,
+  //  'safe_value' => $tweet->place->full_name . ', ' . $tweet->place->country,
+  //);
   
   // If we have a place, then assign it based on which components we have available
   // to us.
@@ -498,6 +498,12 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
     }
   }
   
+  // Handle the author name
+  $node->field_tweet_author['und'][0] = array(
+    'value' => $tweet->user->screen_name,
+    'safe_value' => $tweet->user->screen_name,
+  );
+
   // Handle the author id
   $node->field_tweet_author_id['und'][0] = array(
     'value' => $tweet->user->id,

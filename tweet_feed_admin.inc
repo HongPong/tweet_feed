@@ -94,7 +94,7 @@ function tweet_feed_feeds_table() {
         break;
       case QUERY_LIST:
         $query_type = 'User List';
-        $feed_criteria = $data->list_name;
+        $feed_criteria = $data->timeline_id . '/' . $data->list_name;
         break;
       default:
         $query_type = t('Unknown');
