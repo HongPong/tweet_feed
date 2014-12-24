@@ -156,7 +156,7 @@ function tweet_feed_process_all_feeds() {
   // tweet_feed_pull_data_from_feed
   $result = db_query('SELECT feed_name,fid FROM tweet_feeds WHERE 1 ORDER BY feed_name');
   while ($fdata = $result->fetchObject()) {
-    tweet_feed_set_message('Processing Feed: ' . $fdata->feed_name, 'ok');
+    tweet_feed_set_message('Processing Feed: ' . $fdata->feed_name, 'ok', $web_interface);
     tweet_feed_pull_data_from_feed($fdata->fid);
   }
 }
@@ -206,7 +206,7 @@ function tweet_feed_pull_data_from_feed($fid, $web_interface = FALSE) {
     // All tweets are nodes, so we do an entity query to get the node id's for the tweets
     // belonging to this feed and delete them. It's conceivable that this could take some
     // time.
-    tweet_feed_set_message('Clearing Previous Tweets', 'ok');
+    tweet_feed_set_message('Clearing Previous Tweets', 'ok', $web_interface);
     $query = new EntityFieldQuery();
     $result = $query->entityCondition('entity_type', 'node')
                     ->entityCondition('bundle', 'twitter_tweet_feed')
@@ -216,10 +216,10 @@ function tweet_feed_pull_data_from_feed($fid, $web_interface = FALSE) {
       foreach ($result['node'] as $nid=>$node) {
         $n = node_load($nid);
         node_delete($nid);
-        tweet_feed_set_message($n->title . ': DELETED', 'ok');
+        tweet_feed_set_message($n->title . ': DELETED', 'ok', $web_interface);
       }
     }
-    tweet_feed_set_message('All previous tweets for this feed are deleted.', 'ok');
+    tweet_feed_set_message('All previous tweets for this feed are deleted.', 'ok', $web_interface);
   }
   
   // Build TwitterOAuth object with client credentials 
@@ -234,7 +234,7 @@ function tweet_feed_pull_data_from_feed($fid, $web_interface = FALSE) {
   $params = ($feed->query_type == QUERY_TIMELINE) ?
     array('user_id' => $feed->timeline_id, 'count' => 100) :
     array('q' => $feed->search_term, 'count' => 100);
-        
+
   while(count($tweets) <= $number_to_get && $lowest_id != 0) {
     tweet_feed_set_message('Tweets Imported: ' . count($tweets) . ', Total To Get: ' . $number_to_get, 'ok', $web_interface);
     if (!empty($tdata->search_metadata->next_results)) {
@@ -281,14 +281,20 @@ function tweet_feed_pull_data_from_feed($fid, $web_interface = FALSE) {
         break;
     }
 
+
     if (!empty($tdata)) {
       tweet_feed_set_message('Processing Tweets', 'ok', $web_interface);
       // If we have errors, then we need to handle them accordingly
       if (!empty($tdata->errors)) {
-        foreach($tdata->errors as $error) {
+        foreach($tdata->errors as $error) { 
           tweet_feed_set_message(t('Tweet Feed Fail: ') . $error->message . ': ' . $error->code,  'error', $web_interface);
           $lowest_id = 0;
           $tweets = array();
+          // If we're handling through the web interface and we're having an issue, then
+          // we need to spit the error to the screen
+          if ($web_interface == TRUE) {
+            drupal_set_message(t('Tweet Feed Fail: ') . $error->message . ': ' . $error->code,  'error');
+          }
         }
       }
       else {
@@ -305,7 +311,7 @@ function tweet_feed_pull_data_from_feed($fid, $web_interface = FALSE) {
         else {
           $tweet_data = $tdata->statuses;
         }
-
+        
         // If this is FALSE, then we have hit an error and need to stop processing
         if (isset($tweet_data['tweets']) && $tweet_data['tweets'] === FALSE) {
           break;
@@ -314,19 +320,23 @@ function tweet_feed_pull_data_from_feed($fid, $web_interface = FALSE) {
         // merge the total tweets so we know how many we have. If we have none, trigger
         // the script to proceed on to the next feed.
         $returned_tweets = tweet_feed_process_tweets($tweet_data, $feed, $web_interface); 
-        
+                
         if (count($returned_tweets) == 0) {
           $lowest_id = 0;
         }
         else { 
-          if (count($returned_tweets) < 100 && count($returned_tweets) > 0) {
+          if (count($returned_tweets) <= 100 && count($returned_tweets) > 0) {
+            //print "here - place 1<br />";
             $lowest_id = 0;
             $tweets = array_merge($tweets, $returned_tweets);
           }
           else {
+            //print "here - place 2<br />";
             $tweets = array_merge($tweets, $returned_tweets);
           }
         }
+        //print count($tweets);
+        //exit();
       }            
     }
     else {
@@ -474,6 +484,7 @@ function tweet_feed_set_message($message, $type = 'status', $web_interface = FAL
   else {
     if ($type != 'drush') {
       $type = ($type == 'fatal') ? 'error' : $type;
+      $type = ($type == 'ok') ? 'status' : $type;
       if ($user->uid == 1) {
         drupal_set_message(check_plain($message), $type);
       }
@@ -500,11 +511,13 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
     
   // Populate our node object with the data we will need to save
   $node = new stdClass();
+  $node->created = $creation_timestamp;
   
   // If we are being passed a node id for updating, then set it here so we update that
   // node. (might be an edge case)
   if ($update_node_id > 0) {
     $node->nid = $update_node_id;
+    node_load($node->nid);
   }
   
   // Because we modify the tweet to get source images, we need to get the hash before
@@ -514,7 +527,6 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
   // Get started with our node data structure
   $node->type = 'twitter_tweet_feed';
   $node->uid = 1;
-  $node->created = $node->changed = $creation_timestamp;
   $node->status = 1;
   $node->comment = 0;
   $node->promote = 0;
@@ -690,7 +702,7 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
     // Initialize the standard parts of our tweeting node.
     $node->type = 'twitter_user_profile';
     $node->uid = 1;
-    $node->created = $node->changed = $creation_timestamp;
+    $node->created = $creation_timestamp;
     $node->status = 1;
     $node->comment = 0;
     $node->promote = 0;
@@ -745,7 +757,7 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
       'hash' => $user_hash,
     );
     drupal_write_record('tweet_user_hashes', $hash_insert);
-    tweet_feed_set_message('Tweet Profile Saved: ' . $tweet->user->name . '(' . $tweet->user->screen_name . ')', 'ok');
+    tweet_feed_set_message('Tweet Profile Saved: ' . $tweet->user->name . '(' . $tweet->user->screen_name . ')', 'ok', $web_interface);
   }
 }
 
@@ -766,6 +778,18 @@ function tweet_feed_node_delete($node) {
     
     default:
       break;
+  }
+}
+
+/**
+ * Implements hook_node_presave().
+ *
+ * Done to preserve our tweeted time as our last updated time. Note we're only doing
+ * this for the tweet feed content type
+ */
+function tweet_feed_node_presave($node) {
+  if ($node->type == 'twitter_tweet_feed') {
+    $node->changed = $node->created;
   }
 }
 

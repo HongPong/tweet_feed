@@ -503,7 +503,7 @@ function tweet_feed_run_import($fid) {
       break;
     case QUERY_LIST:
       $query_type = 'User List';
-      $feed_criteria = $feed->timeline_id . '/' . $data->list_name;
+      $feed_criteria = $feed->timeline_id . '/' . $feed->list_name;
       break;
     default:
       $query_type = t('Unknown');
@@ -537,9 +537,9 @@ function tweet_feed_run_import($fid) {
       }
     }
     $batch['operations'][] = array('tweet_feed_save_tweet', array($tweet, $feed, $update_node_id, $hash));
-  }  
-
+  }
+  
   batch_set($batch);
-  batch_process('admin/config/services/tweet_feed');
+  batch_process('admin/config/services/tweet_feed/feeds');
 
 }
