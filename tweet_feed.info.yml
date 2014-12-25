@@ -1,0 +1,6 @@
+name: Tweet Feed
+type: module
+description: A Twitter integration module that pulls profiles of people and tweets who tweet according to search  or user timeline.
+core: 8.x
+package: Tweet Feed
+version: VERSION

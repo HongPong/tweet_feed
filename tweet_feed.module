@@ -4,9 +4,6 @@
  * Code for the Tweet Feed feature.
  */
 
-include_once 'tweet_feed.features.inc';
-include_once 'tweet_feed.field_info.inc';
-
 define('QUERY_SEARCH', 1);
 define('QUERY_TIMELINE', 2);
 define('QUERY_LIST', 3);
