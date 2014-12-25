@@ -147,6 +147,80 @@ function tweet_feed_permission() {
 }
 
 /**
+ * Implements hook_cron
+ *
+ * When running on a cron, we are going to update one feed per cron run and keep track
+ * of which one was run. These will be run in a round robin order in the order which
+ * they were created (in ascending order by ID).
+ */
+function tweet_feed_cron() {
+  // Get a list of all the available feeds
+  $feed = array();
+  $result = db_query('SELECT fid FROM {tweet_feeds} ORDER BY fid ASC');
+  while ($fdata = $result->fetchObject()) {
+    $feed[] = $fdata->fid;
+  }
+  // Determine the id of the last feed run
+  $last_fid = variable_get('tweet_feed_cron_last_fpos', NULL);
+  // If it is zero, or this is the first time being run, then start with the first one
+  if ($last_fid === NULL) {
+    $current_fid = 0;
+  } 
+  else {
+    $current_fid = $last_fid + 1;
+    if ($current_fid > (count($feed)-1)) {
+      $current_fid = 0;
+    }
+  }
+  // Set the last fid used in our variable for future use
+  variable_set('tweet_feed_cron_last_fpos', $current_fid);
+  variable_set('tweet_feed_cron_last_feed', $feed[$current_fid]);
+  
+  // Get all of the tweets to be imported
+  $tweets = tweet_feed_pull_data_from_feed($feed[$current_fid], TRUE);
+  
+  // Get our current tweet_feed_queue
+  $queue = drupalQueue::get('tweet_feed_queue');
+  
+  // If we have items left in it that were not processed, then do those first and
+  // bail. Could mean we had a time out issue on the last run or some other error
+  $queue_size = $queue->numberOfItems();
+  if ($queue_size < 1) {
+    // Nothing is in the queue, so we can begin populating it with more stuff  
+    foreach($tweets as $key=>$tweet) {
+      // Initialize our update_node_id
+      $update_node_id = 0;
+      $hash = NULL;
+      // find out if we already have this tweet, if we do, add the update primary key (pk)
+      $result = db_query("SELECT nid, tid, hash FROM {tweet_hashes}
+                          WHERE tid = :tweet_id", array(':tweet_id' => $tweet->id));
+      if ($result->rowCount() > 0) {
+        $tdata = $result->fetchObject();
+        $hash = md5(serialize($tweet));
+        // If our hashes are equal, we have nothing to update and can move along
+        if ($hash == $tdata->hash) {
+          continue;
+        }
+        else {
+          $update_node_id = $tdata->nid;
+        }
+      }   
+      $queue->createItem(array('tweet' => $tweet, 'feed' => $feed, 'update_node_id' => $update_node_id, 'hash' => $hash));
+    }
+    // Get the total number of items we have addedd to our queue
+    $queue_size = $queue->numberOfItems();
+  }
+  
+  // Run through items in the queue
+  for ($i = 0; $i < $queue_size; $i++) {
+    $item = $queue->claimItem($i);
+    tweet_feed_save_tweet($item->data['tweet'], $item->data['feed'], $item->data['update_node_id'], $item->data['hash']);
+    $queue->releaseItem($item);
+    $queue->deleteItem($item);
+  }
+}
+
+/**
  * Iterate through the feeds and import
  *
  * Used by our drush command to get all of the feed data and import the feeds accordingly
@@ -497,7 +571,7 @@ function tweet_feed_set_message($message, $type = 'status', $web_interface = FAL
  *
  * Save our tweet data and (optionally) profile if site is configured to do so.
  */
-function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL) {
+function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL, $cron = FALSE) {
   // Get the creation time of the tweet and store it.
   $creation_timestamp = strtotime($tweet->created_at);
   
@@ -523,6 +597,12 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
   // Because we modify the tweet to get source images, we need to get the hash before
   // we do any of our processing
   $tweet_hash = md5(serialize($tweet));
+  
+  // If we are being provided a hash, we compare against this hash and if they are equal
+  // then there is nothing to do
+  if ($tweet_hash == $hash) {
+    return NULL;
+  }
   
   // Get started with our node data structure
   $node->type = 'twitter_tweet_feed';
@@ -655,7 +735,11 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL)
     'hash' => $tweet_hash,
   );
   drupal_write_record('tweet_hashes', $hash_insert);
-  tweet_feed_set_message('Tweet Saved: ' . $node->title, 'ok');
+  
+  // If we're not running as part of our cron, then report the saved tweet */
+  if ($cron == FALSE) {
+    tweet_feed_set_message('Tweet Saved: ' . $node->title, 'ok', $web_interface);
+  }
   
   // Unset the node variable so we can re-use it
   unset($node);
