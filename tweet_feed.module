@@ -196,7 +196,7 @@ function tweet_feed_cron() {
                           WHERE tid = :tweet_id", array(':tweet_id' => $tweet->id));
       if ($result->rowCount() > 0) {
         $tdata = $result->fetchObject();
-        $hash = md5(serialize($tweet));
+        $hash = md5(serialize($tweet->text));
         // If our hashes are equal, we have nothing to update and can move along
         if ($hash == $tdata->hash) {
           continue;
@@ -225,10 +225,17 @@ function tweet_feed_cron() {
  *
  * Used by our drush command to get all of the feed data and import the feeds accordingly
  */
-function tweet_feed_process_all_feeds() {
-  // load in the fid's for active feeds and then run them through 
-  // tweet_feed_pull_data_from_feed
-  $result = db_query('SELECT feed_name,fid FROM tweet_feeds WHERE 1 ORDER BY feed_name');
+function tweet_feed_process_feed($fid) {
+  if ($fid == NULL) {
+    // If we're not being passed any argument, then process all the feeds.
+    // Load in the fid's for active feeds and then run them through 
+    // tweet_feed_pull_data_from_feed
+    $result = db_query('SELECT feed_name, fid FROM tweet_feeds WHERE 1 ORDER BY feed_name');
+  }
+  else {
+    // Otherwise, just load in the one specified
+    $result = db_query('SELECT feed_name, fid FROM tweet_feeds WHERE fid = :fid ORDER BY feed_name', array(':fid' => $fid));
+  }
   while ($fdata = $result->fetchObject()) {
     tweet_feed_set_message('Processing Feed: ' . $fdata->feed_name, 'ok', $web_interface);
     tweet_feed_pull_data_from_feed($fdata->fid);
@@ -310,7 +317,7 @@ function tweet_feed_pull_data_from_feed($fid, $web_interface = FALSE) {
     array('q' => $feed->search_term, 'count' => 100);
 
   while(count($tweets) <= $number_to_get && $lowest_id != 0) {
-    tweet_feed_set_message('Tweets Imported: ' . count($tweets) . ', Total To Get: ' . $number_to_get, 'ok', $web_interface);
+    tweet_feed_set_message('Tweets Imported: ' . count($tweets) . ', Total To Import: ' . $number_to_get, 'ok', $web_interface);
     if (!empty($tdata->search_metadata->next_results)) {
       $next = substr($tdata->search_metadata->next_results, 1);
       $parts = explode('&', $next);
@@ -326,12 +333,18 @@ function tweet_feed_pull_data_from_feed($fid, $web_interface = FALSE) {
     $data = new stdClass();
     switch ($feed->query_type) {
       case QUERY_TIMELINE:
-        tweet_feed_set_message('Retrieving Timeline Status Messages For ID: ' . $feed->timeline_id, 'ok', $web_interface);
+        // Only display this the first time. No need for each trip down the line.
+        if (count($tweets) < 1) {
+          tweet_feed_set_message('Retrieving Timeline Status Messages For ID: ' . $feed->timeline_id, 'ok', $web_interface);
+        }
         $tdata = json_decode($con->oAuthRequest('https://api.twitter.com/1.1/statuses/user_timeline.json', 'GET', $params));
         break;
       
       case QUERY_LIST:
-        tweet_feed_set_message('Retrieving List Status Messages For List Name: ' . $feed->list_name, 'ok', $web_interface);
+        // Only display this the first time. No need for each trip down the line.
+        if (count($tweets) < 1) {
+          tweet_feed_set_message('Retrieving List Status Messages For List Name: ' . $feed->list_name, 'ok', $web_interface);
+        }
         $tdata = json_decode(
           $con->oAuthRequest(
             'https://api.twitter.com/1.1/lists/statuses.json',
@@ -347,7 +360,10 @@ function tweet_feed_pull_data_from_feed($fid, $web_interface = FALSE) {
       
       case QUERY_SEARCH:
       default:
-        tweet_feed_set_message('Retrieving Status Messages For Search Term: ' . $feed->search_term, 'ok', $web_interface);
+        // Only display this the first time. No need for each trip down the line.
+        if (count($tweets) < 1) {
+          tweet_feed_set_message('Retrieving Status Messages For Search Term: ' . $feed->search_term, 'ok', $web_interface);
+        }
         $tdata = json_decode(
           $con->oAuthRequest('https://api.twitter.com/1.1/search/tweets.json',
           'GET', array('q' => $feed->search_term, 'count' => $feed->pull_count))
@@ -372,7 +388,6 @@ function tweet_feed_pull_data_from_feed($fid, $web_interface = FALSE) {
         }
       }
       else {
-  
         if ($feed->query_type == QUERY_TIMELINE || $feed->query_type == QUERY_LIST) {
           // Get the lowest ID from the last element in the timeline
           $end_of_the_line = array_pop($tdata);
@@ -400,20 +415,17 @@ function tweet_feed_pull_data_from_feed($fid, $web_interface = FALSE) {
         }
         else { 
           if (count($returned_tweets) <= 100 && count($returned_tweets) > 0) {
-            //print "here - place 1<br />";
             $lowest_id = 0;
             $tweets = array_merge($tweets, $returned_tweets);
           }
           else {
-            //print "here - place 2<br />";
             $tweets = array_merge($tweets, $returned_tweets);
           }
         }
-        //print count($tweets);
-        //exit();
       }            
     }
     else {
+      tweet_feed_set_message('No tweets available for this criteria.', 'ok', $web_interface);
       break;
     }
   }
@@ -433,6 +445,7 @@ function tweet_feed_pull_data_from_feed($fid, $web_interface = FALSE) {
  */
 function tweet_feed_process_tweets($tweet_data, $feed, $web_interface = FALSE) {
   $tweets = array();
+  $total_hashi = 0;
   foreach($tweet_data as $key=>$tweet) {
     // Initialize our update_node_id
     $update_node_id = 0;
@@ -441,7 +454,7 @@ function tweet_feed_process_tweets($tweet_data, $feed, $web_interface = FALSE) {
                         WHERE tid = :tweet_id", array(':tweet_id' => $tweet->id));
     if ($result->rowCount() > 0) {
       $tdata = $result->fetchObject();
-      $hash = md5(serialize($tweet));
+      $hash = md5(serialize($tweet->text));
       // If our hashes are equal, we have nothing to update and can move along
       if ($hash == $tdata->hash) {
         continue;
@@ -450,11 +463,18 @@ function tweet_feed_process_tweets($tweet_data, $feed, $web_interface = FALSE) {
         $update_node_id = $tdata->nid;
       }
     }
+    // If we're using the web iterface, our batch processing will take care of tweet
+    // saving as well as progress counting. This is purely for drushes entertainment
     if ($web_interface == FALSE) {
-      tweet_feed_save_tweet($tweet, $feed, $update_node_id, $hash);
+      tweet_feed_save_tweet($tweet, $feed, $update_node_id, $tdata->hash);
+      if (($key > 1 && (!($key % 20))) || (($key+1) == count($tweet_data))) {
+        tweet_feed_set_message('Loaded ' . $key . ' out of ' . (count($tweet_data)) . ' (' . number_format(((($key+1)/(count($tweet_data)))*100),2) . '%)', 'ok', $web_interface);
+      }
     }
+    
     $tweets[] = $tweet;
-  }  
+  }
+   
   return $tweets;
 }
 
@@ -596,11 +616,12 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL,
   
   // Because we modify the tweet to get source images, we need to get the hash before
   // we do any of our processing
-  $tweet_hash = md5(serialize($tweet));
+  $tweet_hash = md5(serialize($tweet->text));
   
   // If we are being provided a hash, we compare against this hash and if they are equal
   // then there is nothing to do
   if ($tweet_hash == $hash) {
+    drush_log($tweet_hash . ' - ' . $hash, 'ok');
     return NULL;
   }
   
@@ -737,9 +758,9 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL,
   drupal_write_record('tweet_hashes', $hash_insert);
   
   // If we're not running as part of our cron, then report the saved tweet */
-  if ($cron == FALSE) {
-    tweet_feed_set_message('Tweet Saved: ' . $node->title, 'ok', $web_interface);
-  }
+  //if ($cron == FALSE) {
+  //  tweet_feed_set_message('Tweet Saved: ' . $node->title, 'ok', $web_interface);
+  //}
   
   // Unset the node variable so we can re-use it
   unset($node);
@@ -841,7 +862,7 @@ function tweet_feed_save_tweet($tweet, $feed, $update_node_id = 0, $hash = NULL,
       'hash' => $user_hash,
     );
     drupal_write_record('tweet_user_hashes', $hash_insert);
-    tweet_feed_set_message('Tweet Profile Saved: ' . $tweet->user->name . '(' . $tweet->user->screen_name . ')', 'ok', $web_interface);
+    //tweet_feed_set_message('Tweet Profile Saved: ' . $tweet->user->name . '(' . $tweet->user->screen_name . ')', 'ok', $web_interface);
   }
 }
 
