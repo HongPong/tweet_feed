@@ -231,6 +231,8 @@ function tweet_feed_process_feed($fid) {
     // Load in the fid's for active feeds and then run them through 
     // tweet_feed_pull_data_from_feed
     $result = db_query('SELECT feed_name, fid FROM tweet_feeds WHERE 1 ORDER BY feed_name');
+    die('dontgo');
+    
   }
   else {
     // Otherwise, just load in the one specified
@@ -468,7 +470,7 @@ function tweet_feed_process_tweets($tweet_data, $feed, $web_interface = FALSE) {
     if ($web_interface == FALSE) {
       tweet_feed_save_tweet($tweet, $feed, $update_node_id, $tdata->hash);
       if (($key > 1 && (!($key % 20))) || (($key+1) == count($tweet_data))) {
-        tweet_feed_set_message('Loaded ' . $key . ' out of ' . (count($tweet_data)) . ' (' . number_format(((($key+1)/(count($tweet_data)))*100),2) . '%)', 'ok', $web_interface);
+        tweet_feed_set_message('Loaded ' . $key . ' out of ' . (count($tweet_data)) . ' (' . number_format(((($key)/(count($tweet_data)))*100),2) . '%)', 'ok', $web_interface);
       }
     }
     
