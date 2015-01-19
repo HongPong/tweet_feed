@@ -150,3 +150,62 @@ function tweet_feed_field_schema($field) {
   return $schema;
 }
 
+/**
+ * Convert tweets from the tables stored in version 1.x to the new nodes
+ */
+function tweet_feed_update_7200() {
+  // We need to create a feed to organize these tweets otherwise they will be orphaned
+  // The first step is to create the account in our accounts table
+  $data = array(
+    'account_name' => t('Converted Account'),
+    'consumer_key' => variable_get('tweet_feed_consumer_key', NULL),
+    'consumer_secret' => variable_get('tweet_feed_consumer_secret', NULL),
+    'oauth_token' => variable_get('tweet_feed_oauth_token', NULL),
+    'oauth_token_secret' => variable_get('tweet_feed_oauth_token_secret', NULL),
+  );
+  $status = drupal_write_record('tweet_accounts', $data);
+  $account_id = $data['aid'];
+  
+  // Get our query type and convert to the new format
+  $query_type = variable_get('tweet_feed_query_type');
+  $query_type = ($query_type == 'search') ? 1 : 2;
+  
+  // Now we create the feed
+  $data = array(
+    'aid' => $account_id,
+    'feed_name' => t('Converted Feed'),
+    'query_type' => $query_type,
+    'search_term' => variable_get('tweet_feed_search_query', NULL),
+    'pull_count' => variable_get('tweet_feed_pull_count', 100),
+    'clear_prior' => variable_get('tweet_feed_truncate', FALSE),
+    'new_window' => variable_get('tweet_feed_new_window', TRUE),
+    'timeline_id' => variable_get('tweet_feed_user_id', FALSE),
+    'list_name' => NULL,
+  );
+  $status = drupal_write_record('tweet_feeds', $data);
+  
+  // Load in all the data from the previous schema of Tweet Feed
+  $result = db_query('SELECT * FROM {tweet_feed} ORDER BY tweet_id');
+  while ($tdata = $result->fetchObject()) {
+    $node = new stdClass();
+    $node->type = 'twitter_tweet_feed',
+    $node->uid = 1;
+    $node->status = 1;
+    $node->comment = 0;
+    $node->promote = 0;
+    $node->moderate = 0;
+    $node->sticky = 0;
+    $node->language = 'und';
+    $node->title = $tdata->screen_name . ': ' . striptags(substr($tdata->tweet, 0, 90));
+    
+    // The tweet itself goes into the tweet contents field
+    $node->field_tweet_contents['und'][0] = array(
+      'value' => $tdata->tweet,
+      'format' => 'full_html',
+    );
+    
+    // NOT YET COMPLETE 
+    
+  }
+}
+
