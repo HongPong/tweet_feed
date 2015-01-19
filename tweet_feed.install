@@ -171,7 +171,7 @@ function tweet_feed_update_7200() {
   $query_type = ($query_type == 'search') ? 1 : 2;
   
   // Now we create the feed
-  $data = array(
+  $feed = array(
     'aid' => $account_id,
     'feed_name' => t('Converted Feed'),
     'query_type' => $query_type,
@@ -182,7 +182,7 @@ function tweet_feed_update_7200() {
     'timeline_id' => variable_get('tweet_feed_user_id', FALSE),
     'list_name' => NULL,
   );
-  $status = drupal_write_record('tweet_feeds', $data);
+  $status = drupal_write_record('tweet_feeds', $feed);
   
   // Load in all the data from the previous schema of Tweet Feed
   $result = db_query('SELECT * FROM {tweet_feed} ORDER BY tweet_id');
@@ -203,9 +203,93 @@ function tweet_feed_update_7200() {
       'value' => $tdata->tweet,
       'format' => 'full_html',
     );
+
+    // Save the feed ID for this tweet
+    $node->field_tweet_feed_id['und'][0]['value'] = $feed['fid'];
+  
+    // Handle the author name
+    $node->field_tweet_author['und'][0] = array(
+      'value' => $tdata->screen_name,
+      'safe_value' => $tdata->screen_name,
+    );
+
+    // Handle the author id
+    $node->field_tweet_author_id['und'][0] = array(
+      'value' => $tdata->user_id,
+      'safe_value' => $tdata->user_id,
+    );
+
+    // Handle the tweet creation date
+    $node->field_tweet_creation_date['und'][0] = array(
+      'value' => date('Y-m-d H:i:s', strtotime($tdata->created_at)),
+      'timezone' => 'UTC/GMT',
+      'timezone_db' => 'UTC/GMT',
+      'datatype' => 'datetime',
+    );
+
+    // Handle the tweet id 
+    $node->field_tweet_id['und'][0] = array(
+      'value' => $tdata->tweet_id,
+      'safe_value' => (int)$tdata->tweet_id,
+    );
+
+    // Because we may not be fully bootstrapped here, we need to make sure our 
+    // tweet_feed_process_hashtags function exists before we are able to start on this
+    // task. If it is not, we need to include_once the tweet_feed.module file and begin
+    if (!function_exists('tweet_feed_process_hashtags')) {
+      include_once(drupal_get_path('module', 'tweet_feed') . '/tweet_feed.module');
+    }
+
+    // Handle hashtags
+    $hashtags = explode(',', $tdata->hashtags);
+    $hashtag_entities = array();
+    foreach ($hashtags as $hashtag) {
+      $hashtag = trim($hashtag);
+      $hashtag_entity = new stdClass();
+      $hashtag_entity->text = $hashtag;
+      $hashtag_entities[] = $hashtag;
+    }
+    $hashtags = tweet_feed_process_hashtags($hashtag_entities);
     
-    // NOT YET COMPLETE 
+    // Handle the hashtags 
+    foreach ($hashtags as $hashtag) {
+      $node->field_twitter_hashtags['und'][] = array(
+        'target_id' => $hashtag,
+      );
+    }
     
+    // Not sure about this method of getting the big twitter profile image, but we're 
+    // going to roll with it for now.
+    $profile_image_url = str_replace('_normal', '', $tdata->profile_image_url);
+
+    // This may be redundant, but we are going to put this in here for the sake of our
+    // own sanity.
+    if (!function_exists('tweet_feed_process_twitter_image')) {
+      include_once(drupal_get_path('module', 'tweet_feed') . '/tweet_feed.module');
+    }
+
+    // Handle the profile image obtained from twitter.com
+    $file = tweet_feed_process_twitter_image($profile_image_url, 'tweet-feed-profile-image', $tdata->tweet_id);
+    if ($file !== NULL) {
+      $node->field_profile_image['und'][0] = (array)$file;
+    }
+  
+    // Save the node
+    node_save($node);
+    $nid = $node->nid;
+  
+    // Make sure the hash in our tweet_hashes table is right by deleting what is there
+    // for this node and updating
+    db_delete('tweet_hashes')->condition('nid', $node->nid)->execute();
+    $hash_insert = array(
+      'tid' => $tweet->id,
+      'nid' => $node->nid,
+      'hash' => $tweet_hash,
+    );
+    drupal_write_record('tweet_hashes', $hash_insert);
+    
+    // After all of this is done, we want to remove our old tables.
+       
   }
 }
 
